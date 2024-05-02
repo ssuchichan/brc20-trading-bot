@@ -19,26 +19,26 @@ import (
 )
 
 func initRobot() error {
-	//r := &model.Robot{}
-	//ok, err := r.CreateBatch()
-	//if err != nil {
-	//	return err
-	//}
-	//// 表明其是第一次创建robot, 需要转钱
-	//if ok {
-	//	// 通过发空投的账户给机器人打钱
-	//	logrus.Info("send fra to robots")
-	//	_, err = utils.SendRobotBatch(os.Getenv(constant.AIRDROPMNEMONIC))
-	//	return err
-	//}
+	r := &model.Robot{}
+	ok, err := r.CreateBatch()
+	if err != nil {
+		return err
+	}
+	// 表明其是第一次创建robot, 需要转钱
+	if ok {
+		// 通过发空投的账户给机器人打钱
+		logrus.Info("send fra to robots")
+		_, err = utils.SendRobotBatch(os.Getenv(constant.AIRDROP_MNEMONIC))
+		return err
+	}
 	return nil
 }
 
 func init() {
 	// S:L:M:R means Latest Mint Robot
-	db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
-	db.MRedis().SetNX(context.Background(), "S:L:L:R", 1, time.Duration(0))
-	db.MRedis().SetNX(context.Background(), "S:L:B:R", 1, time.Duration(0))
+	//db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
+	//db.MRedis().SetNX(context.Background(), "S:L:L:R", 1, time.Duration(0))
+	//db.MRedis().SetNX(context.Background(), "S:L:B:R", 1, time.Duration(0))
 	err := initRobot()
 	if err != nil {
 		logrus.Error(err)
@@ -68,7 +68,7 @@ func mint() error {
 		return err
 	}
 
-	tick := os.Getenv(constant.ROBOTTICK)
+	tick := os.Getenv(constant.ROBOT_TICK)
 
 	token, err := model.NewTokenFromDBByTicker(tick)
 	if err != nil {
@@ -85,7 +85,7 @@ func mint() error {
 		return err
 	}
 
-	_, err = utils.SendTx(curRobot.Mnemonic, curPubkey, curPubkey, token.Limit, os.Getenv(constant.ROBOTTICK), "0", constant.BRC20_OP_MINT)
+	_, err = utils.SendTx(curRobot.Mnemonic, curPubkey, curPubkey, token.Limit, os.Getenv(constant.ROBOT_TICK), "0", constant.BRC20_OP_MINT)
 	return err
 }
 
@@ -131,7 +131,7 @@ func addList() error {
 		return err
 	}
 
-	ticker := os.Getenv(constant.ROBOTTICK)
+	ticker := os.Getenv(constant.ROBOT_TICK)
 
 	b := &model.BRC20TokenBalance{}
 	balance, err := b.GetByTickerAndAddress(ticker, curRobot.Account)
@@ -172,7 +172,7 @@ func addList() error {
 	}
 
 	// 3. 转账
-	hash, err := utils.SendTx(curRobot.Mnemonic, centerPubkey, centerPubkey, amount, os.Getenv(constant.ROBOTTICK), price, constant.BRC20_OP_TRANSFER)
+	hash, err := utils.SendTx(curRobot.Mnemonic, centerPubkey, centerPubkey, amount, os.Getenv(constant.ROBOT_TICK), price, constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -279,36 +279,37 @@ func buy() error {
 }
 
 func main() {
-	mintTicker := time.NewTicker(60 * time.Second)
-	addListTicker := time.NewTicker(70 * time.Second)
-	buyTicker := time.NewTicker(70 * time.Second)
-	defer func() {
-		mintTicker.Stop()
-		addListTicker.Stop()
-		buyTicker.Stop()
-	}()
-	for {
-		select {
-		case <-mintTicker.C:
-			err := mint()
-			if err != nil {
-				utils.GetLogger().Errorf("mint tick err:%v", err)
-				continue
-			}
-		case <-addListTicker.C:
-			err := addList()
-			if err != nil {
-				utils.GetLogger().Errorf("list tick err:%v", err)
-				continue
-			}
-		case <-buyTicker.C:
-			err := buy()
-			if err != nil {
-				utils.GetLogger().Errorf("buy tick err:%v", err)
-				continue
-			}
-		default:
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
+	//mintTicker := time.NewTicker(60 * time.Second)
+	//addListTicker := time.NewTicker(70 * time.Second)
+	//buyTicker := time.NewTicker(70 * time.Second)
+	//defer func() {
+	//	mintTicker.Stop()
+	//	addListTicker.Stop()
+	//	buyTicker.Stop()
+	//}()
+	//for {
+	//	select {
+	//	case <-mintTicker.C:
+	//		err := mint()
+	//		if err != nil {
+	//			utils.GetLogger().Errorf("mint tick err:%v", err)
+	//			continue
+	//		}
+	//	case <-addListTicker.C:
+	//		err := addList()
+	//		if err != nil {
+	//			utils.GetLogger().Errorf("list tick err:%v", err)
+	//			continue
+	//		}
+	//	case <-buyTicker.C:
+	//		err := buy()
+	//		if err != nil {
+	//			utils.GetLogger().Errorf("buy tick err:%v", err)
+	//			continue
+	//		}
+	//	default:
+	//		time.Sleep(10 * time.Millisecond)
+	//	}
+	//}
+	fmt.Println("ok")
 }
