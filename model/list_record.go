@@ -62,7 +62,7 @@ func (l *ListRecord) Cancel() error {
 func (l *ListRecord) Finished() error {
 	l.UpdateTime = time.Now().Unix()
 	l.State = constant.ListFinished
-	_, err := db.Master().NamedExec("update list_record set state = :state, update_time = :update_time, to_user = :to_user where id = :id", l)
+	_, err := db.RemoteMaster().NamedExec("update list_record set state = :state, update_time = :update_time, to_user = :to_user where id = :id", l)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func (l *ListRecord) FindOrderPageList(pageNo int, pageCount int, params UserTic
 
 func (l *ListRecord) GetRobotListRecord() ([]*ListRecord, error) {
 	r := &Robot{}
-	robots, err := r.AllAcounts()
+	robots, err := r.AllListAcounts()
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +298,8 @@ func (l *ListRecord) GetRobotListRecord() ([]*ListRecord, error) {
 		return nil, err
 	}
 
-	q = db.Master().Rebind(q)
-	err = db.Master().Select(&result, q, a...)
+	q = db.RemoteMaster().Rebind(q)
+	err = db.RemoteMaster().Select(&result, q, a...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return result, nil

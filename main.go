@@ -9,10 +9,11 @@ import (
 	"brc20-trading-bot/utils"
 	"context"
 	"fmt"
-
 	"math/big"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -22,23 +23,28 @@ func initRobot() error {
 	r := &model.Robot{}
 	ok, err := r.CreateBatch()
 	if err != nil {
+		logrus.Info("Init robot accounts...ok")
 		return err
 	}
 	// 表明其是第一次创建robot, 需要转钱
 	if ok {
 		// 通过发空投的账户给机器人打钱
-		logrus.Info("send fra to robots")
+		logrus.Info("Generating robot accounts and send FRA...")
 		_, err = utils.SendRobotBatch(os.Getenv(constant.AIRDROP_MNEMONIC))
 		return err
 	}
+	logrus.Info("Init robot accounts...ok")
 	return nil
 }
 
 func init() {
 	// S:L:M:R means Latest Mint Robot
 	//db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
-	//db.MRedis().SetNX(context.Background(), "S:L:L:R", 1, time.Duration(0))
-	//db.MRedis().SetNX(context.Background(), "S:L:B:R", 1, time.Duration(0))
+	// Least List Robot
+	db.MRedis().SetNX(context.Background(), "S:L:L:R", 1, time.Duration(0))
+	// Least Buy Robot
+	db.MRedis().SetNX(context.Background(), "S:L:B:R", 2, time.Duration(0))
+
 	err := initRobot()
 	if err != nil {
 		logrus.Error(err)
@@ -121,7 +127,7 @@ func addList() error {
 		return err
 	}
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:L:R", latestRobotId%200+1, time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+2)%200, time.Duration(0))
 	}()
 
 	// 1. 获取当前robot
@@ -189,15 +195,15 @@ func addList() error {
 	return tx.Commit()
 }
 
-func buy() error {
-	logrus.Info("buy")
+func buy(floorPrice int64) error {
+	logrus.Info("buy, current floor price ", floorPrice)
 	// S:L:L:R means Latest Buy Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:B:R").Int64()
 	if err != nil {
 		return err
 	}
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:B:R", latestRobotId%200+1, time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+2)%200, time.Duration(0))
 	}()
 
 	// 1. 获取当前robot
@@ -220,7 +226,6 @@ func buy() error {
 
 	// 4. 转账 并 购买
 	for _, v := range records {
-
 		centerAccount := platform.Mnemonic2Bench32([]byte(v.CenterMnemonic))
 		centerPubkey, err := utils.GetPubkeyFromAddress(centerAccount)
 		if err != nil {
@@ -231,8 +236,8 @@ func buy() error {
 			return err
 		}
 		logrus.Infof("listId %d, price %d", v.Id, price.Value.Int64())
-		// 如果price大于当前balance-fee
-		if price.Value.Cmp(big.NewInt(int64(balance-constant.TX_MIN_FEE))) >= 0 {
+		// 价格大于地板价 或 price大于当前balance-fee
+		if price.Value.Cmp(big.NewInt(floorPrice)) > 0 || price.Value.Cmp(big.NewInt(int64(balance-constant.TX_MIN_FEE))) >= 0 {
 			continue
 		}
 		// 给中心化账户打钱
@@ -243,7 +248,7 @@ func buy() error {
 		logrus.Infof("buy transfer to center hash: %s", hash)
 		// 更改挂单状态
 		listRecord := &model.ListRecord{Base: model.Base{Id: v.Id}, ToUser: curRobot.Account}
-		tx, err := db.Master().Begin()
+		tx, err := db.RemoteMaster().Begin()
 		if err != nil {
 			return err
 		}
@@ -279,37 +284,67 @@ func buy() error {
 }
 
 func main() {
+	var (
+		floorPrices  []int64
+		priceIndex   int64
+		listInterval int64
+		buyInterval  int64
+		listLimit    int64
+		err          error
+	)
+	floorPricesStr := os.Getenv("FLOOR_PRICES")
+	prices := strings.Split(floorPricesStr, ",")
+	for i := 0; i < len(prices); i++ {
+		p, _ := strconv.ParseInt(prices[i], 10, 64)
+		floorPrices = append(floorPrices, p*1_000_000)
+	}
+
+	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
+	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
+	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
+	logrus.Info("List limit: ", listLimit)
+	logrus.Info("Floor prices: ", floorPrices)
+	logrus.Info("Current floor price: ", floorPrices[priceIndex])
+	logrus.Infof("List interval: %ds, buy inteval: %ds", listInterval, buyInterval)
+
 	//mintTicker := time.NewTicker(60 * time.Second)
-	//addListTicker := time.NewTicker(70 * time.Second)
-	//buyTicker := time.NewTicker(70 * time.Second)
-	//defer func() {
-	//	mintTicker.Stop()
-	//	addListTicker.Stop()
-	//	buyTicker.Stop()
-	//}()
-	//for {
-	//	select {
-	//	case <-mintTicker.C:
-	//		err := mint()
-	//		if err != nil {
-	//			utils.GetLogger().Errorf("mint tick err:%v", err)
-	//			continue
-	//		}
-	//	case <-addListTicker.C:
-	//		err := addList()
-	//		if err != nil {
-	//			utils.GetLogger().Errorf("list tick err:%v", err)
-	//			continue
-	//		}
-	//	case <-buyTicker.C:
-	//		err := buy()
-	//		if err != nil {
-	//			utils.GetLogger().Errorf("buy tick err:%v", err)
-	//			continue
-	//		}
-	//	default:
-	//		time.Sleep(10 * time.Millisecond)
-	//	}
-	//}
-	fmt.Println("ok")
+	addListTicker := time.NewTicker(time.Duration(listInterval) * time.Second)
+	buyTicker := time.NewTicker(time.Duration(buyInterval) * time.Second)
+	defer func() {
+		//mintTicker.Stop()
+		addListTicker.Stop()
+		buyTicker.Stop()
+	}()
+
+	for {
+		select {
+		//case <-mintTicker.C:
+		//	err := mint()
+		//	if err != nil {
+		//		utils.GetLogger().Errorf("mint tick err:%v", err)
+		//		continue
+		//	}
+		case <-addListTicker.C:
+			err := addList()
+			if err != nil {
+				utils.GetLogger().Errorf("list tick err:%v", err)
+				continue
+			}
+		case <-buyTicker.C:
+			curFloorPrice := floorPrices[priceIndex]
+			err := buy(curFloorPrice)
+			if err != nil {
+				utils.GetLogger().Errorf("buy tick err:%v", err)
+				continue
+			}
+			priceIndex += 1
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 }

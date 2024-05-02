@@ -52,9 +52,26 @@ func (r *Robot) GetById(id uint64) (*Robot, error) {
 	return &res, err
 }
 
-func (r *Robot) AllAcounts() ([]string, error) {
+func (r *Robot) Next() (*Robot, error) {
+	var res Robot
+	nextID := (r.Id + 2) % 200
+	err := db.Master().Get(&res, "select * from robot where id = $1", nextID)
+	return &res, err
+}
+
+func (r *Robot) AllListAcounts() ([]string, error) {
 	var result []string
-	err := db.Master().Select(&result, "select account from robot")
+	err := db.Master().Select(&result, "select account from robot where id%2=1")
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *Robot) AllBuyAccounts() ([]string, error) {
+	var result []string
+	err := db.Master().Select(&result, "select account from robot where id%2=0")
 	if err != nil {
 		return nil, err
 	}

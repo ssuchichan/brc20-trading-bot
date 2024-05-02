@@ -59,13 +59,6 @@ var DEFAULT_DECIMAL_18 = "18"
 
 // env
 const (
-	DBUSER           = "DBUSER"
-	PASSWORD         = "PASSWORD"
-	HOST             = "HOST"
-	PORT             = "PORT"
-	Name             = "DBName"
-	StartBlock       = "StartBlock"
-	Interval         = "Interval"
 	ENDPOINT         = "ENDPOINT"
 	PLAT_INNER_PORT  = "PLAT_INNER_PORT"
 	PLAT_API_PORT    = "PLAT_API_PORT"
@@ -77,8 +70,8 @@ const (
 	REDISURL         = "REDISURL"
 	RATELIMITSECOND  = "RATELIMITSECOND"
 	RATELIMITDAY     = "RATELIMITDAY"
-
-	ROBOT_TICK = "ROBOT_TICK"
+	FLOOR_PRICE      = "FLOOR_PRICE"
+	ROBOT_TICK       = "ROBOT_TICK"
 )
 
 // hrp
