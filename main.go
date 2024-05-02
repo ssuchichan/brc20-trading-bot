@@ -147,7 +147,7 @@ func addList() error {
 
 	// 2. 插入上架信息
 	// 价格FRA 1000 + Rand(50, 100)
-	tx, err := db.Master().Begin()
+	tx, err := db.RemoteMaster().Begin()
 	if err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func main() {
 				utils.GetLogger().Errorf("buy tick err:%v", err)
 				continue
 			}
-			priceIndex += 1
+			priceIndex = (priceIndex + 1) % int64(len(floorPrices))
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}

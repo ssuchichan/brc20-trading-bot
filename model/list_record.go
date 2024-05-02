@@ -29,7 +29,7 @@ func (l *ListRecord) InsertToDB() (int64, error) {
 	l.UpdateTime = time.Now().Unix()
 
 	var insertedID int64
-	err := db.Master().Get(&insertedID,
+	err := db.RemoteMaster().Get(&insertedID,
 		"INSERT INTO list_record (ticker, \"user\", amount, price, state, create_time, update_time, center_mnemonic) values ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
 		l.Ticker, l.User, l.Amount, l.Price, l.State, l.CreateTime, l.UpdateTime, l.CenterMnemonic)
 	if err != nil {
@@ -42,7 +42,7 @@ func (l *ListRecord) InsertToDB() (int64, error) {
 func (l *ListRecord) ConfirmList() error {
 	l.UpdateTime = time.Now().Unix()
 	l.State = constant.Listing
-	_, err := db.Master().NamedExec("update list_record set state = :state, update_time = :update_time where id = :id and \"user\" = :user", l)
+	_, err := db.RemoteMaster().NamedExec("update list_record set state = :state, update_time = :update_time where id = :id and \"user\" = :user", l)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (l *ListRecord) ConfirmList() error {
 func (l *ListRecord) Cancel() error {
 	l.UpdateTime = time.Now().Unix()
 	l.State = constant.ListCancel
-	_, err := db.Master().NamedExec("update list_record set state = :state, update_time = :update_time where id = :id and \"user\" = :user", l)
+	_, err := db.RemoteMaster().NamedExec("update list_record set state = :state, update_time = :update_time where id = :id and \"user\" = :user", l)
 	if err != nil {
 		return err
 	}

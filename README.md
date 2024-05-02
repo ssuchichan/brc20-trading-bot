@@ -9,9 +9,9 @@
 ## 环境变量
 ```bash
 # 本机数据库URL
-DATABSE_URL=postgres://postgres:csq123456@localhost/postgres
+DATABASE_URL=postgres://postgres:csq123456@localhost/postgres
 # 远端（交易所、交易平台）数据库URL
-REMOTE_DATABSE_URL=postgres://hello:world123456@localhost/postgres
+REMOTE_DATABASE_URL=postgres://hello:world123456@localhost/postgres
 # Redis URL
 REDISURL=redis://localhost:6379/0
 # 链接时查找库的目录,(加入libplatform.so所在的路径)

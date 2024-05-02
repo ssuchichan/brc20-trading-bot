@@ -62,7 +62,7 @@ func (b *BRC20TokenBalance) GetOverallBalance() (*decimal.Decimal, error) {
 
 func (b *BRC20TokenBalance) GetByTickerAndAddress(ticker string, address string) (*BRC20TokenBalance, error) {
 	var result BRC20TokenBalance
-	err := db.Master().Get(&result, "select * from balance where ticker = $1 and address = $2", ticker, address)
+	err := db.RemoteMaster().Get(&result, "select * from balance where ticker = $1 and address = $2", ticker, address)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return &BRC20TokenBalance{Ticker: ticker, Address: address}, nil
