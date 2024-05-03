@@ -26,8 +26,9 @@ func initRobot() error {
 		logrus.Info("Init robot accounts...ok")
 		return err
 	}
-	// 表明其是第一次创建robot, 需要转钱
+
 	if ok {
+		// 第一次创建robot, 需要转钱
 		// 通过发空投的账户给机器人打钱
 		logrus.Info("Generating robot accounts and send FRA...")
 		_, err = utils.SendRobotBatch(os.Getenv(constant.AIRDROP_MNEMONIC))
@@ -143,7 +144,7 @@ func addList(floorPrice int64, listLimit int64) error {
 		return err
 	}
 	if totalList >= listLimit {
-		logrus.Infof("Rech list limit, total listed: %d, list limit: %d", totalList, listLimit)
+		logrus.Infof("Reach list limit, total listed: %d, list limit: %d", totalList, listLimit)
 		return nil
 	}
 	logrus.Info("Current list amount: %d", totalList)
@@ -371,7 +372,11 @@ func main() {
 				continue
 			}
 		case <-priceTicker.C:
-			priceIndex = (priceIndex + 1) % int64(len(floorPrices))
+			if priceIndex+1 == int64(len(prices)) {
+				logrus.Info("Reached the last floor price, exit.")
+				return
+			}
+			priceIndex += 1
 			logrus.Info("Update floor price to: ", floorPrices[priceIndex])
 		default:
 			time.Sleep(10 * time.Millisecond)
