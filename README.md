@@ -6,6 +6,9 @@
 * PostgreSQL
 * Redis
 
+## 创建表
+Use `table.sql` to create tables.
+
 ## 环境变量
 ```bash
 # 本机数据库URL
