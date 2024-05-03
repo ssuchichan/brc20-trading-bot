@@ -20,6 +20,7 @@ import (
 )
 
 func initRobot() error {
+	logrus.Info("Init accounts...")
 	r := &model.Robot{}
 	ok, err := r.CreateBatch()
 	if err != nil {
@@ -30,11 +31,11 @@ func initRobot() error {
 	if ok {
 		// 第一次创建robot, 需要转钱
 		// 通过发空投的账户给机器人打钱
-		logrus.Info("Generating robot accounts and send FRA...")
+		logrus.Info("Sending FRA...")
 		_, err = utils.SendRobotBatch(os.Getenv(constant.AIRDROP_MNEMONIC))
 		return err
 	}
-	logrus.Info("Init robot accounts...ok")
+	logrus.Info("Init accounts...ok")
 	return nil
 }
 
@@ -50,6 +51,81 @@ func init() {
 	if err != nil {
 		logrus.Error(err)
 		panic(err)
+	}
+}
+
+func main() {
+	var (
+		floorPrices         []int64
+		priceIndex          int64
+		listInterval        int64
+		buyInterval         int64
+		priceUpdateInterval int64
+		listLimit           int64
+		err                 error
+	)
+	floorPricesStr := os.Getenv("FLOOR_PRICES")
+	prices := strings.Split(floorPricesStr, ",")
+	for i := 0; i < len(prices); i++ {
+		p, _ := strconv.ParseInt(prices[i], 10, 64)
+		floorPrices = append(floorPrices, p*1_000_000)
+	}
+	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
+	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
+	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
+	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
+	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	logrus.Info("Floor prices: ", floorPrices)
+	logrus.Info("Current floor price: ", floorPrices[priceIndex])
+	logrus.Info("Floor prices updating interval: ", priceUpdateInterval)
+	logrus.Info("List limit: ", listLimit)
+	logrus.Infof("List interval: %ds, buy inteval: %ds", listInterval, buyInterval)
+
+	//mintTicker := time.NewTicker(60 * time.Second)
+	addListTicker := time.NewTicker(time.Duration(listInterval) * time.Second)
+	buyTicker := time.NewTicker(time.Duration(buyInterval+120) * time.Second)
+	priceTicker := time.NewTicker(time.Duration(priceUpdateInterval) * time.Second)
+	defer func() {
+		//mintTicker.Stop()
+		addListTicker.Stop()
+		buyTicker.Stop()
+	}()
+
+	for {
+		select {
+		//case <-mintTicker.C:
+		//	err := mint()
+		//	if err != nil {
+		//		utils.GetLogger().Errorf("mint tick err:%v", err)
+		//		continue
+		//	}
+		case <-addListTicker.C:
+			curFloorPrice := floorPrices[priceIndex]
+			err := addList(curFloorPrice, listLimit)
+			if err != nil {
+				utils.GetLogger().Errorf("list tick err:%v", err)
+				continue
+			}
+		case <-buyTicker.C:
+			curFloorPrice := floorPrices[priceIndex]
+			err := buy(curFloorPrice)
+			if err != nil {
+				utils.GetLogger().Errorf("buy tick err:%v", err)
+				continue
+			}
+		case <-priceTicker.C:
+			if priceIndex+1 == int64(len(prices)) {
+				logrus.Info("Reached the last floor price, exit.")
+				return
+			}
+			priceIndex += 1
+			logrus.Info("Update floor price to: ", floorPrices[priceIndex])
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
 
@@ -306,80 +382,4 @@ func buy(floorPrice int64) error {
 	}
 
 	return nil
-}
-
-func main() {
-	var (
-		floorPrices         []int64
-		priceIndex          int64
-		listInterval        int64
-		buyInterval         int64
-		priceUpdateInterval int64
-		listLimit           int64
-		err                 error
-	)
-	floorPricesStr := os.Getenv("FLOOR_PRICES")
-	prices := strings.Split(floorPricesStr, ",")
-	for i := 0; i < len(prices); i++ {
-		p, _ := strconv.ParseInt(prices[i], 10, 64)
-		floorPrices = append(floorPrices, p*1_000_000)
-	}
-
-	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
-	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
-	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
-	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
-	if err != nil {
-		panic(err)
-	}
-
-	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
-	logrus.Info("List limit: ", listLimit)
-	logrus.Info("Floor prices: ", floorPrices)
-	logrus.Info("Current floor price: ", floorPrices[priceIndex])
-	logrus.Infof("List interval: %ds, buy inteval: %ds", listInterval, buyInterval)
-
-	//mintTicker := time.NewTicker(60 * time.Second)
-	addListTicker := time.NewTicker(time.Duration(listInterval) * time.Second)
-	buyTicker := time.NewTicker(time.Duration(buyInterval+120) * time.Second)
-	priceTicker := time.NewTicker(time.Duration(priceUpdateInterval) * time.Second)
-	defer func() {
-		//mintTicker.Stop()
-		addListTicker.Stop()
-		buyTicker.Stop()
-	}()
-
-	for {
-		select {
-		//case <-mintTicker.C:
-		//	err := mint()
-		//	if err != nil {
-		//		utils.GetLogger().Errorf("mint tick err:%v", err)
-		//		continue
-		//	}
-		case <-addListTicker.C:
-			curFloorPrice := floorPrices[priceIndex]
-			err := addList(curFloorPrice, listLimit)
-			if err != nil {
-				utils.GetLogger().Errorf("list tick err:%v", err)
-				continue
-			}
-		case <-buyTicker.C:
-			curFloorPrice := floorPrices[priceIndex]
-			err := buy(curFloorPrice)
-			if err != nil {
-				utils.GetLogger().Errorf("buy tick err:%v", err)
-				continue
-			}
-		case <-priceTicker.C:
-			if priceIndex+1 == int64(len(prices)) {
-				logrus.Info("Reached the last floor price, exit.")
-				return
-			}
-			priceIndex += 1
-			logrus.Info("Update floor price to: ", floorPrices[priceIndex])
-		default:
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
 }

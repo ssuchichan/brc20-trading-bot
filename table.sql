@@ -139,7 +139,9 @@ CREATE SEQUENCE "robot_id_seq"
 CREATE TABLE "robot" (
   "id" bigint NOT NULL DEFAULT nextval('robot_id_seq'::regclass),
   "account" varchar(64) NOT NULL,
+  "private_key" varchar(48) NOT NULL,
   "mnemonic" varchar(512) NOT NULL,
+  "ty" integer NOT NULL,
   "create_time" int4 NOT NULL,
   "update_time" int4 NOT NULL,
   CONSTRAINT "robot_pkey" PRIMARY KEY ("id")

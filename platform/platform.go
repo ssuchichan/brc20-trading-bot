@@ -8,8 +8,6 @@ package platform
 #include <string.h>
 #include <stdlib.h>
 
-uint64_t add(uint64_t a, uint64_t b);
-
 const char *get_tx_str(
     char *fromSigPtr, uint32_t fromSigLen,
 	char *receiverPtr, uint32_t receiverLen,
@@ -25,10 +23,11 @@ uint64_t get_seq_id(char *urlPrt, uint32_t urlLen);
 
 const char *generate_mnemonic_default();
 
+const char *mnemonic_to_bench32(char *fromSigPtr, uint32_t fromSigLen);
+const char* mnemonic_to_private_key(char* mnemonicPtr, uint32_t mnemonicLen);
+const char* generate_private_key();
 
-const char *mnemonic_to_bench32(
-    char *fromSigPtr, uint32_t fromSigLen);
-
+const char* private_key_to_bech32(char* skBase64Ptr, uint32_t keyLen);
 
 const char *get_transfer_tx_str(
     char *fromSigPtr, uint32_t fromSigLen,
@@ -50,15 +49,8 @@ uint64_t get_user_fra_balance(
 */
 import "C"
 import (
-	"fmt"
 	"unsafe"
 )
-
-func Demo() {
-	v := 42
-	aa := C.uint64_t(v)
-	fmt.Println(C.add(aa, aa))
-}
 
 func GetTxBody(fromSig []byte, receiver []byte, to []byte, url []byte, transAmount []byte, tick []byte, fraPrice []byte, brcType []byte) string {
 	// Call C function
@@ -99,9 +91,7 @@ func GetSeqId(url []byte) uint64 {
 
 func GetMnemonic() string {
 	result := C.generate_mnemonic_default()
-
 	resultStr := C.GoString(result)
-
 	return resultStr
 }
 
@@ -112,6 +102,24 @@ func Mnemonic2Bench32(fromSig []byte) string {
 	// Convert result to Go string
 	resultStr := C.GoString(result)
 	return resultStr
+}
+
+func Mnemonic2PrivateKey(mnemonic []byte) string {
+	result := C.mnemonic_to_private_key((*C.char)(unsafe.Pointer(&mnemonic[0])), C.uint32_t(len(mnemonic)))
+	str := C.GoString(result)
+	return str
+}
+
+func GeneratePrivateKey() string {
+	result := C.generate_private_key()
+	str := C.GoString(result)
+	return str
+}
+
+func PrivateKey2Bech32(privateKey []byte) string {
+	result := C.private_key_to_bech32((*C.char)(unsafe.Pointer(&privateKey[0])), C.uint32_t(len(privateKey)))
+	str := C.GoString(result)
+	return str
 }
 
 func GetSendRobotBatchTxBody(fromSig []byte, url []byte) string {

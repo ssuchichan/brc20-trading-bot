@@ -3,13 +3,16 @@ package model
 import (
 	"brc20-trading-bot/db"
 	"brc20-trading-bot/platform"
+	"github.com/sirupsen/logrus"
 	"time"
 )
 
 type Robot struct {
 	Base
-	Mnemonic string `json:"mnemonic" db:"mnemonic"`
-	Account  string `json:"account" db:"account"`
+	Account    string `json:"account" db:"account"`
+	PrivateKey string `json:"privateKey" db:"private_key"`
+	Mnemonic   string `json:"mnemonic" db:"mnemonic"`
+	Ty         int    `json:"ty" db:"ty"`
 }
 
 func (r *Robot) CreateBatch() (bool, error) {
@@ -20,20 +23,24 @@ func (r *Robot) CreateBatch() (bool, error) {
 	if ok {
 		return false, nil
 	}
+	logrus.Info("Generating accounts...")
 	var robots []*Robot
 	for i := 0; i < 200; i++ {
 		curMnemonic := platform.GetMnemonic()
+		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic))
 		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))
 		robots = append(robots, &Robot{
-			Mnemonic: curMnemonic,
-			Account:  curAccount,
+			Account:    curAccount,
+			PrivateKey: privateKey,
+			Mnemonic:   curMnemonic,
+			Ty:         i % 2, // 0: 挂单账户, 1: 购买账户
 			Base: Base{
 				CreateTime: time.Now().Unix(),
 				UpdateTime: time.Now().Unix(),
 			},
 		})
 	}
-	_, err = db.Master().NamedExec("INSERT INTO robot (account, mnemonic, create_time, update_time) VALUES (:account, :mnemonic, :create_time, :update_time)", robots)
+	_, err = db.Master().NamedExec("INSERT INTO robot (account, private_key, mnemonic, ty, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :ty, :create_time, :update_time)", robots)
 	return true, err
 }
 
@@ -61,7 +68,7 @@ func (r *Robot) Next() (*Robot, error) {
 
 func (r *Robot) AllListAcounts() ([]string, error) {
 	var result []string
-	err := db.Master().Select(&result, "select account from robot where id%2=1")
+	err := db.Master().Select(&result, "select account from robot where ty=0")
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +78,7 @@ func (r *Robot) AllListAcounts() ([]string, error) {
 
 func (r *Robot) AllBuyAccounts() ([]string, error) {
 	var result []string
-	err := db.Master().Select(&result, "select account from robot where id%2=0")
+	err := db.Master().Select(&result, "select account from robot where ty=1")
 	if err != nil {
 		return nil, err
 	}

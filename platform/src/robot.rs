@@ -1,7 +1,7 @@
 extern crate dotenv;
 use serde::Serialize;
-use sqlx::PgPool;
 use sqlx::Error;
+use sqlx::PgPool;
 
 #[derive(Serialize)]
 pub struct Robot {
@@ -36,14 +36,15 @@ mod tests {
         let db_port = std::env::var("PORT").unwrap();
         let db_name = std::env::var("DBName").unwrap();
 
-        let uri = format!("postgres://{}:{}@{}:{}/{}", db_user, db_password, db_host, db_port, db_name);
+        let uri = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            db_user, db_password, db_host, db_port, db_name
+        );
 
-        let pg_pool = PgPoolOptions::new()
-        .connect(&uri).await.unwrap();
+        let pg_pool = PgPoolOptions::new().connect(&uri).await.unwrap();
 
         match Robot::all_accounts(&pg_pool).await {
             Ok(accounts) => {
-
                 assert_eq!(200, accounts.len());
             }
             Err(e) => {

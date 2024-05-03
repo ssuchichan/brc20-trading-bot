@@ -9,13 +9,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDemo(t *testing.T) {
-	Demo()
-}
-
 func TestGetSeqId2(t *testing.T) {
 	result := GetSeqId([]byte("https://prod-testnet.prod.findora.org:8668"))
 	fmt.Println(result)
+}
+
+func TestGeneratePrivateKey(t *testing.T) {
+	privateKey := GeneratePrivateKey()
+	fmt.Println(PrivateKey2Bech32([]byte(privateKey)))
+}
+
+func TestMnemonicToPrivateKey(t *testing.T) {
+	mnemonic := "twelve electric charge key oil wrong zero trim light happy skirt place"
+	privateKey := Mnemonic2PrivateKey([]byte(mnemonic))
+	address := PrivateKey2Bech32([]byte(privateKey))
+	assert.Equal(t, address, "fra1esgvcm65fqtmgl2nmwq8e5q45py7qczu50rvv8f77c9gml2vp4psx7kjlh")
+}
+
+func TestPrivateKeyToBech32(t *testing.T) {
+	privateKey := "U002KbLUCBwzTnJgkSTGyCCG9qpMjM9WEGdxS00-HyA="
+	address := PrivateKey2Bech32([]byte(privateKey))
+	assert.Equal(t, address, "fra10d3u9a7208z533yl9yrnv4h5rs2q9ef3e7p9vyscz4nun0e0hyps4cpzc8")
 }
 
 func TestGetTx(t *testing.T) {

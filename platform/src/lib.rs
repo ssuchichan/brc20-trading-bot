@@ -3,6 +3,7 @@ pub mod robot;
 
 extern crate dotenv;
 use anyhow::{anyhow, Result};
+use base64::engine;
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use core::slice;
 use dotenv::dotenv;
@@ -25,11 +26,6 @@ use zei::serialization::ZeiFromToBytes;
 use zei::xfr::asset_record::{open_blind_asset_record, AssetRecordType};
 use zei::xfr::sig::XfrPublicKey;
 use zei::xfr::structs::{AssetRecordTemplate, OwnerMemo};
-
-#[no_mangle]
-pub extern "C" fn add(a: u64, b: u64) -> u64 {
-    a + b
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Memo {
@@ -74,7 +70,7 @@ pub extern "C" fn get_tx_str(
     let trans_amount_str = std::str::from_utf8(trans_amount).unwrap();
     let url = unsafe { slice::from_raw_parts(url_ptr, url_len as usize) };
     let url_str = std::str::from_utf8(url).unwrap();
-    let brc_type = unsafe {slice::from_raw_parts(brc_type_ptr, brc_type_len as usize) };
+    let brc_type = unsafe { slice::from_raw_parts(brc_type_ptr, brc_type_len as usize) };
     let brc_type_str = std::str::from_utf8(brc_type).unwrap();
 
     let fra_amount = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
@@ -119,7 +115,7 @@ pub extern "C" fn get_tx_str(
     }
 
     if input_amount < fra_price + TX_FEE_MIN_V0 {
-        return CString::new("").unwrap().into_raw()
+        return CString::new("").unwrap().into_raw();
     }
 
     let memo_struct = Memo::new(
@@ -235,7 +231,7 @@ pub extern "C" fn get_transfer_tx_str(
     }
 
     if input_amount < fra_price + TX_FEE_MIN_V0 {
-        return CString::new("").unwrap().into_raw()
+        return CString::new("").unwrap().into_raw();
     }
 
     // 找零
@@ -370,6 +366,44 @@ pub extern "C" fn mnemonic_to_bench32(from_sig_ptr: *mut u8, from_sig_len: u32) 
     let pub_key = from.get_pk();
     let from_bench32 = wallet::public_key_to_bech32(&pub_key);
     let c_string = CString::new(from_bench32).unwrap();
+
+    c_string.into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn mnemonic_to_private_key(
+    mnemonic_ptr: *mut u8,
+    mnemonic_len: u32,
+) -> *const c_char {
+    let mnemonic = unsafe { slice::from_raw_parts(mnemonic_ptr, mnemonic_len as usize) };
+    let mnemonic_str = std::str::from_utf8(mnemonic).unwrap();
+    let key_pair = wallet::restore_keypair_from_mnemonic_default(mnemonic_str).unwrap();
+    let sk = key_pair.get_sk().zei_to_bytes();
+    let sk_base64 = engine::general_purpose::URL_SAFE.encode(sk);
+    let c_string = CString::new(sk_base64).unwrap();
+
+    c_string.into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn generate_private_key() -> *const c_char {
+    let mnemonic = wallet::generate_mnemonic_default();
+    let key_pair = wallet::restore_keypair_from_mnemonic_default(&mnemonic).unwrap();
+    let sk = key_pair.get_sk().zei_to_bytes();
+    let sk_base64 = engine::general_purpose::URL_SAFE.encode(sk);
+    let c_string = CString::new(sk_base64).unwrap();
+
+    c_string.into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn private_key_to_bech32(sk_base64_ptr: *mut u8, key_len: u32) -> *const c_char {
+    let sk_bytes = unsafe { slice::from_raw_parts(sk_base64_ptr, key_len as usize) };
+    let sk_str = std::str::from_utf8(sk_bytes).unwrap();
+    let key_pair = wallet::restore_keypair_from_seckey_base64(sk_str).unwrap();
+    let pubkey_bech32 = wallet::public_key_to_bech32(&key_pair.get_pk());
+    let c_string = CString::new(pubkey_bech32).unwrap();
+
     c_string.into_raw()
 }
 
@@ -422,14 +456,14 @@ pub extern "C" fn get_send_robot_batch_tx(
     });
 
     if accounts_result.len() != 200 {
-        return CString::new("").unwrap().into_raw()
+        return CString::new("").unwrap().into_raw();
     }
 
     let mut robot_users: Vec<RobotInitAmount> = Vec::with_capacity(accounts_result.len() as usize);
     let mut fra_price_total = 0;
     let mut rng = rand::thread_rng();
     for account in accounts_result {
-        let rand_num = rng.gen_range(80000..100001);
+        let rand_num = rng.gen_range(1..11);
         fra_price_total += rand_num;
         robot_users.push(RobotInitAmount::new(account, rand_num as u64));
     }
@@ -467,7 +501,7 @@ pub extern "C" fn get_send_robot_batch_tx(
     }
 
     if input_amount < fra_price + TX_FEE_MIN_V0 {
-        return CString::new("").unwrap().into_raw()
+        return CString::new("").unwrap().into_raw();
     }
 
     // 找零
@@ -487,7 +521,8 @@ pub extern "C" fn get_send_robot_batch_tx(
     );
 
     op.add_output(&template_fee, None, None, None, None)
-        .and_then(|b| b.add_output(&template_from, None, None, None, None)).unwrap();
+        .and_then(|b| b.add_output(&template_from, None, None, None, None))
+        .unwrap();
 
     for out in robot_users {
         // 转账
@@ -500,7 +535,8 @@ pub extern "C" fn get_send_robot_batch_tx(
         op.add_output(&receive_fra, None, None, None, None).unwrap();
     }
 
-    let trans_build = op.create(TransferType::Standard)
+    let trans_build = op
+        .create(TransferType::Standard)
         .and_then(|b| b.sign(&from))
         .and_then(|b| b.transaction())
         .unwrap();
@@ -553,18 +589,13 @@ pub extern "C" fn get_user_fra_balance(
 #[cfg(test)]
 mod tests {
     use crate::{
-        add, generate_mnemonic_default, get_send_robot_batch_tx, get_transfer_tx_str, get_tx_str, get_user_fra_balance, robot::Robot, send_tx, Memo
+        generate_mnemonic_default, get_send_robot_batch_tx, get_transfer_tx_str, get_tx_str,
+        get_user_fra_balance, robot::Robot, send_tx, Memo,
     };
     extern crate dotenv;
     use dotenv::dotenv;
     use globutils::wallet;
     use sqlx::postgres::PgPoolOptions;
-    use zei::{serialization::ZeiFromToBytes, xfr::sig::XfrPublicKey};
-
-    #[test]
-    fn test_1() {
-        assert_eq!(3, add(1, 2));
-    }
 
     #[test]
     fn test_memo() {
@@ -610,7 +641,7 @@ mod tests {
             fra_amount.as_mut_ptr(),
             fra_amount.len() as u32,
             brc_type.as_mut_ptr(),
-            brc_type.len() as u32
+            brc_type.len() as u32,
         );
         let result = unsafe { std::ffi::CStr::from_ptr(a).to_str() };
         println!("result {:?}", result)
@@ -697,7 +728,12 @@ mod tests {
         dotenv().ok();
         let mut from = std::env::var("CENTEREFROM").unwrap();
         let mut url = String::from("https://prod-testnet.prod.findora.org:8668");
-        let a = get_send_robot_batch_tx(from.as_mut_ptr(), from.len() as u32, url.as_mut_ptr(), url.len() as u32);
+        let a = get_send_robot_batch_tx(
+            from.as_mut_ptr(),
+            from.len() as u32,
+            url.as_mut_ptr(),
+            url.len() as u32,
+        );
         let result = unsafe { std::ffi::CStr::from_ptr(a).to_str() };
         println!("{:?}", result)
     }
@@ -707,7 +743,12 @@ mod tests {
         dotenv().ok();
         let mut from = std::env::var("CENTEREFROM").unwrap();
         let mut url = String::from("https://prod-testnet.prod.findora.org:8668");
-        let a = get_user_fra_balance(from.as_mut_ptr(), from.len() as u32, url.as_mut_ptr(), url.len() as u32);
+        let a = get_user_fra_balance(
+            from.as_mut_ptr(),
+            from.len() as u32,
+            url.as_mut_ptr(),
+            url.len() as u32,
+        );
         println!("{:?}", a)
     }
 }
