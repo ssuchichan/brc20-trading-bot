@@ -120,7 +120,7 @@ func isMintFinished(token *model.Token) (bool, error) {
 	return true, nil
 }
 
-func addList() error {
+func addList(floorPrice int64, listLimit int64) error {
 	// S:L:L:R means Latest List Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
@@ -136,62 +136,81 @@ func addList() error {
 	if err != nil {
 		return err
 	}
-
-	ticker := os.Getenv(constant.ROBOT_TICK)
-
-	b := &model.BRC20TokenBalance{}
-	balance, err := b.GetByTickerAndAddress(ticker, curRobot.Account)
+	// 当前list总量
+	rec := &model.ListRecord{}
+	totalList, err := rec.SumListAmount(r.Account)
 	if err != nil {
 		return err
 	}
-
-	// 2. 插入上架信息
-	// 价格FRA 1000 + Rand(50, 100)
+	if totalList >= listLimit {
+		logrus.Infof("Rech list limit, total listed: %d, list limit: %d", totalList, listLimit)
+		return nil
+	}
+	logrus.Info("Current list amount: %d", totalList)
+	ticker := os.Getenv(constant.ROBOT_TICK)
+	delta := listLimit - totalList
 	tx, err := db.RemoteMaster().Begin()
 	if err != nil {
 		return err
 	}
-	price := fmt.Sprintf("%d", 1050+rand.Intn(51))
-	amount := balance.OverallBalance
-	if amount == "" {
-		amount = "0"
-	}
-	// center 挂单中心账户
-	center := platform.GetMnemonic()
-	centerAccount := platform.Mnemonic2Bench32([]byte(center))
-	centerPubkey, err := utils.GetPubkeyFromAddress(centerAccount)
-	if err != nil {
-		return err
-	}
-	listRecord := &model.ListRecord{
-		Ticker:         ticker,
-		User:           curRobot.Account,
-		Price:          price,
-		Amount:         amount,
-		CenterMnemonic: center,
-		State:          constant.ListWaiting,
-	}
-	lastInsertId, err := listRecord.InsertToDB()
-	if err != nil {
-		tx.Rollback()
-		return err
+	for delta > 0 {
+		// 检查当前机器人账户余额
+		b := &model.BRC20TokenBalance{}
+		balanceInfo, err := b.GetByTickerAndAddress(ticker, curRobot.Account)
+		if err != nil {
+			return err
+		}
+		amount, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
+		if amount == 0 {
+			nextRobot, err := curRobot.Next()
+			if err != nil {
+				return err
+			}
+			logrus.Infof("%s account is incificient balance, next account: %s", curRobot.Account, nextRobot.Account)
+			curRobot = nextRobot
+			continue
+		}
+		price := fmt.Sprintf("%d", floorPrice+floorPrice*int64(rand.Intn(101)/100))
+		// center 挂单中心账户
+		center := platform.GetMnemonic()
+		centerAccount := platform.Mnemonic2Bench32([]byte(center))
+		centerPubkey, err := utils.GetPubkeyFromAddress(centerAccount)
+		if err != nil {
+			return err
+		}
+		listRecord := &model.ListRecord{
+			Ticker:         ticker,
+			User:           curRobot.Account,
+			Price:          price,
+			Amount:         balanceInfo.OverallBalance,
+			CenterMnemonic: center,
+			State:          constant.ListWaiting,
+		}
+		lastInsertId, err := listRecord.InsertToDB()
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 3. 转账
+		hash, err := utils.SendTx(curRobot.Mnemonic, centerPubkey, centerPubkey, balanceInfo.OverallBalance, os.Getenv(constant.ROBOT_TICK), price, constant.BRC20_OP_TRANSFER)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		logrus.Infof("list transfer hash: %s", hash)
+
+		// 4. 确认转账
+		listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
+		err = listRecordTemp.ConfirmList()
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		delta -= amount
 	}
 
-	// 3. 转账
-	hash, err := utils.SendTx(curRobot.Mnemonic, centerPubkey, centerPubkey, amount, os.Getenv(constant.ROBOT_TICK), price, constant.BRC20_OP_TRANSFER)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	logrus.Infof("list transfer hash: %s", hash)
-
-	// 4. 确认转账
-	listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
-	err = listRecordTemp.ConfirmList()
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
 	return tx.Commit()
 }
 
@@ -236,12 +255,17 @@ func buy(floorPrice int64) error {
 			return err
 		}
 		logrus.Infof("listId %d, price %d", v.Id, price.Value.Int64())
-		// 价格大于地板价 或 price大于当前balance-fee
-		if price.Value.Cmp(big.NewInt(floorPrice)) > 0 || price.Value.Cmp(big.NewInt(int64(balance-constant.TX_MIN_FEE))) >= 0 {
+		priceDec, _, _ := decimal.NewDecimalFromString(v.Price)
+		amountDec, _, _ := decimal.NewDecimalFromString(v.Amount)
+		payment := new(big.Int).Mul(amountDec.Value, priceDec.Value)
+		// 购买价格小于地板价的订单
+		if price.Value.Cmp(big.NewInt(floorPrice)) > 0 || (balance-payment.Uint64()-constant.TX_MIN_FEE) <= 0 {
+			// 价格大于地板价
+			// 余额不足
 			continue
 		}
 		// 给中心化账户打钱
-		hash, err := utils.Transfer(curRobot.Mnemonic, centerPubkey, v.Price)
+		hash, err := utils.Transfer(curRobot.Mnemonic, centerPubkey, payment.String())
 		if err != nil {
 			return err
 		}
@@ -285,12 +309,13 @@ func buy(floorPrice int64) error {
 
 func main() {
 	var (
-		floorPrices  []int64
-		priceIndex   int64
-		listInterval int64
-		buyInterval  int64
-		listLimit    int64
-		err          error
+		floorPrices         []int64
+		priceIndex          int64
+		listInterval        int64
+		buyInterval         int64
+		priceUpdateInterval int64
+		listLimit           int64
+		err                 error
 	)
 	floorPricesStr := os.Getenv("FLOOR_PRICES")
 	prices := strings.Split(floorPricesStr, ",")
@@ -302,6 +327,7 @@ func main() {
 	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
 	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
 	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
+	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
 	if err != nil {
 		panic(err)
 	}
@@ -314,7 +340,8 @@ func main() {
 
 	//mintTicker := time.NewTicker(60 * time.Second)
 	addListTicker := time.NewTicker(time.Duration(listInterval) * time.Second)
-	buyTicker := time.NewTicker(time.Duration(buyInterval) * time.Second)
+	buyTicker := time.NewTicker(time.Duration(buyInterval+120) * time.Second)
+	priceTicker := time.NewTicker(time.Duration(priceUpdateInterval) * time.Second)
 	defer func() {
 		//mintTicker.Stop()
 		addListTicker.Stop()
@@ -330,7 +357,8 @@ func main() {
 		//		continue
 		//	}
 		case <-addListTicker.C:
-			err := addList()
+			curFloorPrice := floorPrices[priceIndex]
+			err := addList(curFloorPrice, listLimit)
 			if err != nil {
 				utils.GetLogger().Errorf("list tick err:%v", err)
 				continue
@@ -342,7 +370,9 @@ func main() {
 				utils.GetLogger().Errorf("buy tick err:%v", err)
 				continue
 			}
+		case <-priceTicker.C:
 			priceIndex = (priceIndex + 1) % int64(len(floorPrices))
+			logrus.Info("Update floor price to: ", floorPrices[priceIndex])
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}

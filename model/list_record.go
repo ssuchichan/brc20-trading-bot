@@ -21,6 +21,12 @@ type ListRecord struct {
 	CenterMnemonic string `json:"center_mnemonic" db:"center_mnemonic"`
 }
 
+func (l *ListRecord) SumListAmount(addr string) (int64, error) {
+	var total int64
+	err := db.RemoteMaster().Get(&total, "SELECT sum(Amount) FROM list_record WHERE state=$1 AND user=$2", constant.ListFinished, addr)
+	return total, err
+}
+
 func (l *ListRecord) InsertToDB() (int64, error) {
 	if l.CreateTime == 0 {
 		l.CreateTime = time.Now().Unix()

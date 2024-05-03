@@ -429,7 +429,7 @@ pub extern "C" fn get_send_robot_batch_tx(
     let mut fra_price_total = 0;
     let mut rng = rand::thread_rng();
     for account in accounts_result {
-        let rand_num = rng.gen_range(1..101);
+        let rand_num = rng.gen_range(80000..100001);
         fra_price_total += rand_num;
         robot_users.push(RobotInitAmount::new(account, rand_num as u64));
     }
