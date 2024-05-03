@@ -11,7 +11,7 @@ Use `table.sql` to create tables.
 
 ## 环境变量
 ```bash
-# 本机数据库URL
+# 本机数据库URL  postgres://{user}:{password}@{ip}/{db}
 DATABASE_URL=postgres://postgres:csq123456@localhost/postgres
 # 远端（交易所、交易平台）数据库URL
 REMOTE_DATABASE_URL=postgres://hello:world123456@localhost/postgres

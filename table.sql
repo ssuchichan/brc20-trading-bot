@@ -23,28 +23,6 @@ CREATE INDEX "search_index" ON "balance" USING btree (
   "address" ASC
 );
 
-CREATE SEQUENCE "block_id_seq"
-INCREMENT 1
-MINVALUE  1
-MAXVALUE 9223372036854775807
-START 1
-CACHE 1;
-
-CREATE TABLE "block" (
-  "id" bigint NOT NULL DEFAULT nextval('block_id_seq'::regclass),
-  "height" int8 NOT NULL,
-  "is_finished" bool NOT NULL,
-  "create_time" int4 NOT NULL,
-  "update_time" int4 NOT NULL,
-  CONSTRAINT "block_pkey" PRIMARY KEY ("id")
-);
-CREATE UNIQUE INDEX "id_UNIQUE_block" ON "block" USING btree (
-  "id" ASC
-);
-CREATE UNIQUE INDEX "height_UNIQUE" ON "block" USING btree (
-  "height" ASC
-);
-
 CREATE SEQUENCE "token_id_seq"
 INCREMENT 1
 MINVALUE  1
