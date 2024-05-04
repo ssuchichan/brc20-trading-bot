@@ -45,7 +45,7 @@ func init() {
 	// Least List Robot
 	db.MRedis().SetNX(context.Background(), "S:L:L:R", 1, time.Duration(0))
 	// Least Buy Robot
-	db.MRedis().SetNX(context.Background(), "S:L:B:R", 2, time.Duration(0))
+	db.MRedis().SetNX(context.Background(), "S:L:B:R", 1, time.Duration(0))
 
 	err := initRobot()
 	if err != nil {
@@ -204,7 +204,7 @@ func addList(floorPrice int64, listLimit int64) error {
 		return err
 	}
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+2)%200, time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%100, time.Duration(0))
 	}()
 
 	// 1. 获取当前robot
@@ -299,7 +299,7 @@ func buy(floorPrice int64) error {
 		return err
 	}
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+2)%200, time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%100, time.Duration(0))
 	}()
 
 	// 1. 获取当前robot
