@@ -12,7 +12,6 @@ type Robot struct {
 	Account    string `json:"account" db:"account"`
 	PrivateKey string `json:"privateKey" db:"private_key"`
 	Mnemonic   string `json:"mnemonic" db:"mnemonic"`
-	Ty         int    `json:"ty" db:"ty"`
 }
 
 func (r *Robot) CreateBatch() (bool, error) {
@@ -24,33 +23,53 @@ func (r *Robot) CreateBatch() (bool, error) {
 		return false, nil
 	}
 	logrus.Info("Generating accounts...")
-	var robots []*Robot
-	for i := 0; i < 200; i++ {
+	var (
+		robotList []*Robot
+		robotsBuy []*Robot
+	)
+	for i := 0; i < 100; i++ {
 		curMnemonic := platform.GetMnemonic()
 		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic))
 		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))
-		robots = append(robots, &Robot{
+		robotList = append(robotList, &Robot{
 			Account:    curAccount,
 			PrivateKey: privateKey,
 			Mnemonic:   curMnemonic,
-			Ty:         i % 2, // 0: 挂单账户, 1: 购买账户
 			Base: Base{
 				CreateTime: time.Now().Unix(),
 				UpdateTime: time.Now().Unix(),
 			},
 		})
 	}
-	_, err = db.Master().NamedExec("INSERT INTO robot (account, private_key, mnemonic, ty, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :ty, :create_time, :update_time)", robots)
+	for i := 0; i < 100; i++ {
+		curMnemonic := platform.GetMnemonic()
+		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic))
+		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))
+		robotsBuy = append(robotsBuy, &Robot{
+			Account:    curAccount,
+			PrivateKey: privateKey,
+			Mnemonic:   curMnemonic,
+			Base: Base{
+				CreateTime: time.Now().Unix(),
+				UpdateTime: time.Now().Unix(),
+			},
+		})
+	}
+
+	_, err = db.Master().NamedExec("INSERT INTO robot_list (account, private_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :create_time, :update_time)", robotList)
+	_, err = db.Master().NamedExec("INSERT INTO robot_buy (account, private_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :create_time, :update_time)", robotsBuy)
+
 	return true, err
 }
 
 func (r *Robot) IsCreated() (bool, error) {
-	var result int
-	err := db.Master().Get(&result, "select count(*) from robot")
+	var resultBuy, resultList int
+	err := db.Master().Get(&resultBuy, "select count(*) from robot_buy")
 	if err != nil {
 		return false, err
 	}
-	return result > 0, nil
+	err = db.Master().Get(&resultList, "select count(*) from robot_list")
+	return resultBuy > 0 && resultList > 0, nil
 }
 
 func (r *Robot) GetById(id uint64) (*Robot, error) {

@@ -14,7 +14,13 @@ func TestGetUTXO(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-	res, err := SendTx("burst sort child success muscle gaze salon swing orphan trim shaft climb", "Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=", "Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=", "2", "only", "2", constant.BRC20_OP_TRANSFER)
+	res, err := SendTx("burst sort child success muscle gaze salon swing orphan trim shaft climb",
+		"Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=",
+		"Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=",
+		"2",
+		"only",
+		"2",
+		constant.BRC20_OP_TRANSFER)
 	assert.Nil(t, err)
 	fmt.Println(res)
 }
@@ -28,7 +34,9 @@ func TestSendRobotBatch(t *testing.T) {
 func TestSendToAirDropAccount(t *testing.T) {
 	pubkey, err := GetPubkeyFromAddress("fra1n4urmyxshvgy20arz99us2z6nlk32hherj6mpynwag2z56wunhlsevha2x")
 	assert.Nil(t, err)
-	res, err := Transfer("zoo nerve assault talk depend approve mercy surge bicycle ridge dismiss satoshi boring opera next fat cinnamon valley office actor above spray alcohol giant", pubkey, "20000000")
+	res, err := Transfer("zoo nerve assault talk depend approve mercy surge bicycle ridge dismiss satoshi boring opera next fat cinnamon valley office actor above spray alcohol giant",
+		pubkey,
+		"20000000")
 	assert.Nil(t, err)
 	fmt.Println(res)
 }
