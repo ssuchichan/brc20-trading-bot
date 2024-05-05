@@ -219,7 +219,7 @@ func addList(floorPrice int64, listLimit int64) error {
 
 	// 1. 获取当前robot
 	r := &model.Robot{}
-	curRobot, err := r.GetById(uint64(latestRobotId))
+	curRobot, err := r.GetRobotListById(uint64(latestRobotId))
 	if err != nil {
 		return err
 	}
