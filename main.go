@@ -42,13 +42,23 @@ func initRobot() error {
 func init() {
 	// S:L:M:R means Latest Mint Robot
 	//db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
-	// Least List Robot
-	db.MRedis().SetNX(context.Background(), "S:L:L:R", 1, time.Duration(0))
-	// Least Buy Robot
-	db.MRedis().SetNX(context.Background(), "S:L:B:R", 1, time.Duration(0))
 
-	err := initRobot()
-	if err != nil {
+	var (
+		firstRobotListID uint64
+		firstRobotBuyID  uint64
+		err              error
+	)
+	r := &model.Robot{}
+	firstRobotListID, err = r.GetFirstRobotList()
+	firstRobotBuyID, err = r.GetFirstRobotBuy()
+	logrus.Infof("The first robot id of listing: %d, the first robot id of buying: %d", firstRobotListID, firstRobotBuyID)
+
+	// Least List Robot
+	db.MRedis().SetNX(context.Background(), "S:L:L:R", firstRobotListID, time.Duration(0))
+	// Least Buy Robot
+	db.MRedis().SetNX(context.Background(), "S:L:B:R", firstRobotBuyID, time.Duration(0))
+
+	if err = initRobot(); err != nil {
 		logrus.Error(err)
 		panic(err)
 	}

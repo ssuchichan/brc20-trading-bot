@@ -27,33 +27,31 @@ func (r *Robot) CreateBatch() (bool, error) {
 		robotList []*Robot
 		robotsBuy []*Robot
 	)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		curMnemonic := platform.GetMnemonic()
 		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic))
 		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))
-		robotList = append(robotList, &Robot{
-			Account:    curAccount,
-			PrivateKey: privateKey,
-			Mnemonic:   curMnemonic,
-			Base: Base{
-				CreateTime: time.Now().Unix(),
-				UpdateTime: time.Now().Unix(),
-			},
-		})
-	}
-	for i := 0; i < 100; i++ {
-		curMnemonic := platform.GetMnemonic()
-		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic))
-		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))
-		robotsBuy = append(robotsBuy, &Robot{
-			Account:    curAccount,
-			PrivateKey: privateKey,
-			Mnemonic:   curMnemonic,
-			Base: Base{
-				CreateTime: time.Now().Unix(),
-				UpdateTime: time.Now().Unix(),
-			},
-		})
+		if i < 100 {
+			robotList = append(robotList, &Robot{
+				Account:    curAccount,
+				PrivateKey: privateKey,
+				Mnemonic:   curMnemonic,
+				Base: Base{
+					CreateTime: time.Now().Unix(),
+					UpdateTime: time.Now().Unix(),
+				},
+			})
+		} else {
+			robotsBuy = append(robotsBuy, &Robot{
+				Account:    curAccount,
+				PrivateKey: privateKey,
+				Mnemonic:   curMnemonic,
+				Base: Base{
+					CreateTime: time.Now().Unix(),
+					UpdateTime: time.Now().Unix(),
+				},
+			})
+		}
 	}
 
 	_, err = db.Master().NamedExec("INSERT INTO robot_list (account, private_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :create_time, :update_time)", robotList)
@@ -70,6 +68,30 @@ func (r *Robot) IsCreated() (bool, error) {
 	}
 	err = db.Master().Get(&resultList, "select count(*) from robot_list")
 	return resultBuy > 0 && resultList > 0, nil
+}
+
+func (r *Robot) GetFirstRobotList()(uint64, error) {
+	var id uint64
+	err := db.Master().Get(&id, "SELECT min(id) FROM robot_list")
+	return id, err
+}
+
+func (r *Robot) GetRobotListById(id uint64)(*Robot, error)  {
+	var res Robot
+	err := db.Master().Get(&res, "select * from robot_list where id = $1", id)
+	return &res, err
+}
+
+func (r *Robot) GetFirstRobotBuy()(uint64, error) {
+	var id uint64
+	err := db.Master().Get(&id, "SELECT min(id) FROM robot_buy")
+	return id, err
+}
+
+func (r *Robot) GetRobotBuyById(id uint64)(*Robot, error)  {
+	var res Robot
+	err := db.Master().Get(&res, "select * from robot_buy where id = $1", id)
+	return &res, err
 }
 
 func (r *Robot) GetById(id uint64) (*Robot, error) {

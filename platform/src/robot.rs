@@ -13,10 +13,20 @@ pub struct Robot {
 
 impl Robot {
     pub async fn all_accounts(pool: &PgPool) -> Result<Vec<String>, Error> {
-        let result: Vec<(String,)> = sqlx::query_as("SELECT account FROM robot")
+        let result_list: Vec<(String,)> = sqlx::query_as("SELECT account FROM robot_list")
             .fetch_all(pool)
             .await?;
-        Ok(result.into_iter().map(|(account,)| account).collect())
+        let mut accounts_list: Vec<String> =
+            result_list.into_iter().map(|(account,)| account).collect();
+
+        let result_buy: Vec<(String,)> = sqlx::query_as("SELECT account FROM robot_buy")
+            .fetch_all(pool)
+            .await?;
+        let accounts_buy: Vec<String> = result_buy.into_iter().map(|(account,)| account).collect();
+
+        accounts_list.extend(accounts_buy);
+
+        Ok(accounts_list)
     }
 }
 

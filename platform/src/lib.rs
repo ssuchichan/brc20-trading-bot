@@ -447,12 +447,9 @@ pub extern "C" fn get_send_robot_batch_tx(
         );
 
         let pg_pool = PgPoolOptions::new().connect(&uri).await.unwrap();
-        match Robot::all_accounts(&pg_pool).await {
-            Ok(accounts) => accounts,
-            Err(_) => {
-                vec![]
-            }
-        }
+        Robot::all_accounts(&pg_pool)
+            .await
+            .unwrap_or_else(|_| vec![])
     });
 
     if accounts_result.len() != 200 {
@@ -713,12 +710,9 @@ mod tests {
             );
 
             let pg_pool = PgPoolOptions::new().connect(&uri).await.unwrap();
-            match Robot::all_accounts(&pg_pool).await {
-                Ok(accounts) => accounts,
-                Err(_) => {
-                    vec![]
-                }
-            }
+            Robot::all_accounts(&pg_pool)
+                .await
+                .unwrap_or_else(|_| vec![])
         });
         assert_eq!(200, accounts_result.len())
     }
