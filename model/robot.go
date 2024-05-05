@@ -70,25 +70,25 @@ func (r *Robot) IsCreated() (bool, error) {
 	return resultBuy > 0 && resultList > 0, nil
 }
 
-func (r *Robot) GetFirstRobotList()(uint64, error) {
+func (r *Robot) GetFirstRobotList() (uint64, error) {
 	var id uint64
 	err := db.Master().Get(&id, "SELECT min(id) FROM robot_list")
 	return id, err
 }
 
-func (r *Robot) GetRobotListById(id uint64)(*Robot, error)  {
+func (r *Robot) GetRobotListById(id uint64) (*Robot, error) {
 	var res Robot
 	err := db.Master().Get(&res, "select * from robot_list where id = $1", id)
 	return &res, err
 }
 
-func (r *Robot) GetFirstRobotBuy()(uint64, error) {
+func (r *Robot) GetFirstRobotBuy() (uint64, error) {
 	var id uint64
 	err := db.Master().Get(&id, "SELECT min(id) FROM robot_buy")
 	return id, err
 }
 
-func (r *Robot) GetRobotBuyById(id uint64)(*Robot, error)  {
+func (r *Robot) GetRobotBuyById(id uint64) (*Robot, error) {
 	var res Robot
 	err := db.Master().Get(&res, "select * from robot_buy where id = $1", id)
 	return &res, err
@@ -97,6 +97,20 @@ func (r *Robot) GetRobotBuyById(id uint64)(*Robot, error)  {
 func (r *Robot) GetById(id uint64) (*Robot, error) {
 	var res Robot
 	err := db.Master().Get(&res, "select * from robot where id = $1", id)
+	return &res, err
+}
+
+func (r *Robot) NextListRobot() (*Robot, error) {
+	var res Robot
+	nextID := (r.Id + 1) % 100
+	err := db.Master().Get(&res, "select * from robot_list where id = $1", nextID)
+	return &res, err
+}
+
+func (r *Robot) NextBuyRobot() (*Robot, error) {
+	var res Robot
+	nextID := (r.Id + 1) % 100
+	err := db.Master().Get(&res, "select * from robot_buy where id = $1", nextID)
 	return &res, err
 }
 

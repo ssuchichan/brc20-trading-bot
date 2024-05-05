@@ -240,6 +240,7 @@ func addList(floorPrice int64, listLimit int64) error {
 	if err != nil {
 		return err
 	}
+	var checkRetry int
 	for delta > 0 {
 		// 检查当前机器人账户余额
 		b := &model.BRC20TokenBalance{}
@@ -249,7 +250,10 @@ func addList(floorPrice int64, listLimit int64) error {
 		}
 		amount, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
 		if amount == 0 {
-			nextRobot, err := curRobot.Next()
+			if (checkRetry + 1) == 100 {
+				return fmt.Errorf("all accounts are incificient")
+			}
+			nextRobot, err := curRobot.NextListRobot()
 			if err != nil {
 				return err
 			}
