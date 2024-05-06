@@ -26,6 +26,11 @@ func TestMnemonicToPrivateKey(t *testing.T) {
 	assert.Equal(t, address, "fra1esgvcm65fqtmgl2nmwq8e5q45py7qczu50rvv8f77c9gml2vp4psx7kjlh")
 }
 
+func TestMnemonicToPublicKey(t *testing.T) {
+	mnemonic := "thought faint misery file cube cage agent flight gallery bundle thrive grant whip pig then purchase movie essence obey old cup loud until goose"
+	fmt.Println(Mnemonic2PublicKey([]byte(mnemonic)))
+}
+
 func TestPrivateKeyToBech32(t *testing.T) {
 	privateKey := "U002KbLUCBwzTnJgkSTGyCCG9qpMjM9WEGdxS00-HyA="
 	address := PrivateKey2Bech32([]byte(privateKey))

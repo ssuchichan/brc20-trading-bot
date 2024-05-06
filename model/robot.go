@@ -11,6 +11,7 @@ type Robot struct {
 	Base
 	Account    string `json:"account" db:"account"`
 	PrivateKey string `json:"privateKey" db:"private_key"`
+	PublicKey  string `json:"publicKey" db:"public_key"`
 	Mnemonic   string `json:"mnemonic" db:"mnemonic"`
 }
 
@@ -30,11 +31,13 @@ func (r *Robot) CreateBatch() (bool, error) {
 	for i := 0; i < 200; i++ {
 		curMnemonic := platform.GetMnemonic()
 		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic)) // base64 private key
-		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))    // address
+		publicKey := platform.Mnemonic2PublicKey([]byte(curMnemonic))   // base64 public key
+		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))    // bech32 address
 		if i < 100 {
 			robotList = append(robotList, &Robot{
 				Account:    curAccount,
 				PrivateKey: privateKey,
+				PublicKey:  publicKey,
 				Mnemonic:   curMnemonic,
 				Base: Base{
 					CreateTime: time.Now().Unix(),
@@ -45,6 +48,7 @@ func (r *Robot) CreateBatch() (bool, error) {
 			robotsBuy = append(robotsBuy, &Robot{
 				Account:    curAccount,
 				PrivateKey: privateKey,
+				PublicKey:  publicKey,
 				Mnemonic:   curMnemonic,
 				Base: Base{
 					CreateTime: time.Now().Unix(),
@@ -54,8 +58,8 @@ func (r *Robot) CreateBatch() (bool, error) {
 		}
 	}
 
-	_, err = db.Master().NamedExec("INSERT INTO robot_list (account, private_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :create_time, :update_time)", robotList)
-	_, err = db.Master().NamedExec("INSERT INTO robot_buy (account, private_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :mnemonic, :create_time, :update_time)", robotsBuy)
+	_, err = db.Master().NamedExec("INSERT INTO robot_list (account, private_key, public_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :public_key, :mnemonic, :create_time, :update_time)", robotList)
+	_, err = db.Master().NamedExec("INSERT INTO robot_buy (account, private_key, public_key, mnemonic, create_time, update_time) VALUES (:account, :private_key, :public_key, :mnemonic, :create_time, :update_time)", robotsBuy)
 
 	return true, err
 }

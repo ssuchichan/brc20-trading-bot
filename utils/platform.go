@@ -9,14 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"io"
 	"net/http"
 	"os"
 )
 
-func GetOwnedUTXO(pubkey string, endpoint string) (sid uint64, record []byte, err error) {
-	resp, err := http.Get(fmt.Sprintf("%s/owned_utxos/%s", endpoint, pubkey))
+func GetOwnedUTXO(pubKey string, endpoint string) (sid uint64, record []byte, err error) {
+	resp, err := http.Get(fmt.Sprintf("%s/owned_utxos/%s", endpoint, pubKey))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -24,14 +23,14 @@ func GetOwnedUTXO(pubkey string, endpoint string) (sid uint64, record []byte, er
 	return
 }
 
-func SendTx(from string, receiverPubkey string, toPubkey string, amount string, tick string, fraPrice string, brcType string) (string, error) {
-	txJsonString := platform.GetTxBody([]byte(from), []byte(receiverPubkey), []byte(toPubkey), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))), []byte(amount), []byte(tick), []byte(fraPrice), []byte(brcType))
-	result_tx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
-	return sendRequest(result_tx)
+func SendTx(from string, receiverPubKey string, toPubKey string, amount string, tick string, fraPrice string, brcType string) (string, error) {
+	txJsonString := platform.GetTxBody([]byte(from), []byte(receiverPubKey), []byte(toPubKey), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))), []byte(amount), []byte(tick), []byte(fraPrice), []byte(brcType))
+	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
+	return sendRequest(resultTx)
 }
 
-func sendRequest(result_tx string) (string, error) {
-	req := model.NewBlockRequest(result_tx)
+func sendRequest(resultTx string) (string, error) {
+	req := model.NewBlockRequest(resultTx)
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return "", err
@@ -53,16 +52,16 @@ func sendRequest(result_tx string) (string, error) {
 	return string(respBody), nil
 }
 
-func Transfer(from string, receiverPubkey string, amount string) (string, error) {
-	txJsonString := platform.GetTransferBody([]byte(from), []byte(receiverPubkey), []byte(amount), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
-	result_tx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
-	return sendRequest(result_tx)
+func Transfer(from string, receiverPubKey string, amount string) (string, error) {
+	txJsonString := platform.GetTransferBody([]byte(from), []byte(receiverPubKey), []byte(amount), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
+	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
+	return sendRequest(resultTx)
 }
 
 func SendRobotBatch(from string) (string, error) {
 	txJsonString := platform.GetSendRobotBatchTxBody([]byte(from), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
-	result_tx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
-	return sendRequest(result_tx)
+	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
+	return sendRequest(resultTx)
 }
 
 func GetFraBalance(from string) uint64 {

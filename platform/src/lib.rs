@@ -467,9 +467,9 @@ pub extern "C" fn get_send_robot_batch_tx(
             .unwrap_or_else(|_| vec![])
     });
 
-    if accounts_result.len() != 200 {
-        return CString::new("").unwrap().into_raw();
-    }
+    //     if accounts_result.len() != 200 {
+    //         return CString::new("").unwrap().into_raw();
+    //     }
 
     let mut robot_users: Vec<RobotInitAmount> = Vec::with_capacity(accounts_result.len() as usize);
     let mut fra_price_total = 0;
