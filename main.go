@@ -183,9 +183,7 @@ func mint() error {
 }
 
 func isMintFinished(token *model.Token) (bool, error) {
-
 	m := &model.MintRecord{}
-
 	total, err := m.MintTickerTotal(token.Ticker)
 	if err != nil {
 		return false, err
@@ -213,9 +211,6 @@ func addList(floorPrice int64, listLimit int64) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%100, time.Duration(0))
-	}()
 
 	// 1. 获取当前robot
 	r := &model.Robot{}
@@ -223,6 +218,15 @@ func addList(floorPrice int64, listLimit int64) error {
 	if err != nil {
 		return err
 	}
+	robotCount, _ := r.GetListRobotCount()
+	if robotCount == 0 {
+		return fmt.Errorf("the accounts count is 0")
+	}
+
+	defer func() {
+		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%int64(robotCount), time.Duration(0))
+	}()
+
 	// 当前list总量
 	rec := &model.ListRecord{}
 	totalList, err := rec.SumListAmount(r.Account)
@@ -250,10 +254,10 @@ func addList(floorPrice int64, listLimit int64) error {
 		}
 		amount, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
 		if amount == 0 {
-			if (checkRetry + 1) == 100 {
+			if (checkRetry + 1) == int(robotCount) {
 				return fmt.Errorf("all accounts are incificient")
 			}
-			nextRobot, err := curRobot.NextListRobot()
+			nextRobot, err := curRobot.NextListRobot(robotCount)
 			if err != nil {
 				return err
 			}
@@ -312,16 +316,19 @@ func buy(floorPrice int64) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%100, time.Duration(0))
-	}()
-
 	// 1. 获取当前robot
 	r := &model.Robot{}
 	curRobot, err := r.GetById(uint64(latestRobotId))
 	if err != nil {
 		return err
 	}
+	robotCount, _ := r.GetBuyRobotCount()
+	if robotCount == 0 {
+		return fmt.Errorf("the accounts count is 0")
+	}
+	defer func() {
+		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%int64(robotCount), time.Duration(0))
+	}()
 
 	// 2. 获取机器人订单
 	l := &model.ListRecord{}
@@ -349,8 +356,7 @@ func buy(floorPrice int64) error {
 		priceDec, _, _ := decimal.NewDecimalFromString(v.Price)
 		amountDec, _, _ := decimal.NewDecimalFromString(v.Amount)
 		payment := new(big.Int).Mul(amountDec.Value, priceDec.Value)
-		// 购买价格小于地板价的订单
-		if price.Value.Cmp(big.NewInt(floorPrice)) > 0 || (balance-payment.Uint64()-constant.TX_MIN_FEE) <= 0 {
+		if price.Value.Cmp(big.NewInt(floorPrice)) > 0 || (balance-payment.Uint64()-constant.TX_MIN_FEE) < 0 {
 			// 价格大于地板价
 			// 余额不足
 			continue

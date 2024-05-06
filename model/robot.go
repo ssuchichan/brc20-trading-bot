@@ -76,6 +76,18 @@ func (r *Robot) GetFirstRobotList() (uint64, error) {
 	return id, err
 }
 
+func (r *Robot) GetListRobotCount() (uint64, error) {
+	var count uint64
+	err := db.Master().Get(&count, "select count(*) from robot_list")
+	return count, err
+}
+
+func (r *Robot) GetBuyRobotCount() (uint64, error) {
+	var count uint64
+	err := db.Master().Get(&count, "select count(*) from robot_buy")
+	return count, err
+}
+
 func (r *Robot) GetRobotListById(id uint64) (*Robot, error) {
 	var res Robot
 	err := db.Master().Get(&res, "select * from robot_list where id = $1", id)
@@ -100,16 +112,16 @@ func (r *Robot) GetById(id uint64) (*Robot, error) {
 	return &res, err
 }
 
-func (r *Robot) NextListRobot() (*Robot, error) {
+func (r *Robot) NextListRobot(robotCount uint64) (*Robot, error) {
 	var res Robot
-	nextID := (r.Id + 1) % 100
+	nextID := (r.Id + 1) % robotCount
 	err := db.Master().Get(&res, "select * from robot_list where id = $1", nextID)
 	return &res, err
 }
 
-func (r *Robot) NextBuyRobot() (*Robot, error) {
+func (r *Robot) NextBuyRobot(robotCount uint64) (*Robot, error) {
 	var res Robot
-	nextID := (r.Id + 1) % 100
+	nextID := (r.Id + 1) % robotCount
 	err := db.Master().Get(&res, "select * from robot_buy where id = $1", nextID)
 	return &res, err
 }
@@ -121,9 +133,9 @@ func (r *Robot) Next() (*Robot, error) {
 	return &res, err
 }
 
-func (r *Robot) AllListAcounts() ([]string, error) {
+func (r *Robot) AllListAccounts() ([]string, error) {
 	var result []string
-	err := db.Master().Select(&result, "select account from robot where ty=0")
+	err := db.Master().Select(&result, "select account from robot_list")
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +145,7 @@ func (r *Robot) AllListAcounts() ([]string, error) {
 
 func (r *Robot) AllBuyAccounts() ([]string, error) {
 	var result []string
-	err := db.Master().Select(&result, "select account from robot where ty=1")
+	err := db.Master().Select(&result, "select account from robot_buy")
 	if err != nil {
 		return nil, err
 	}
