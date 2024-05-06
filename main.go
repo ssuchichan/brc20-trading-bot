@@ -48,10 +48,6 @@ func init() {
 		firstRobotBuyID  uint64
 		err              error
 	)
-	r := &model.Robot{}
-	firstRobotListID, err = r.GetFirstRobotList()
-	firstRobotBuyID, err = r.GetFirstRobotBuy()
-	logrus.Infof("The first robot id of listing: %d, the first robot id of buying: %d", firstRobotListID, firstRobotBuyID)
 
 	// Least List Robot
 	db.MRedis().SetNX(context.Background(), "S:L:L:R", firstRobotListID, time.Duration(0))
@@ -62,6 +58,11 @@ func init() {
 		logrus.Error(err)
 		panic(err)
 	}
+
+	r := &model.Robot{}
+	firstRobotListID, err = r.GetFirstRobotList()
+	firstRobotBuyID, err = r.GetFirstRobotBuy()
+	logrus.Infof("The first listRobotId: %d, the first buyRobotId: %d", firstRobotListID, firstRobotBuyID)
 }
 
 func main() {
@@ -318,7 +319,7 @@ func buy(floorPrice int64) error {
 	}
 	// 1. 获取当前robot
 	r := &model.Robot{}
-	curRobot, err := r.GetById(uint64(latestRobotId))
+	curRobot, err := r.GetRobotBuyById(uint64(latestRobotId))
 	if err != nil {
 		return err
 	}
@@ -341,7 +342,7 @@ func buy(floorPrice int64) error {
 	balance := utils.GetFraBalance(curRobot.Mnemonic)
 	logrus.Infof("%d %s buy, balance %d, records len %d", latestRobotId, curRobot.Account, balance, len(records))
 
-	// 4. 转账 并 购买
+	// 4. 转账并购买
 	for _, v := range records {
 		centerAccount := platform.Mnemonic2Bench32([]byte(v.CenterMnemonic))
 		centerPubkey, err := utils.GetPubkeyFromAddress(centerAccount)
