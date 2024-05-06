@@ -268,9 +268,11 @@ func addList(floorPrice int64, listLimit int64) error {
 		}
 		price := fmt.Sprintf("%d", floorPrice+floorPrice*int64(rand.Intn(101)/100))
 		// center 挂单中心账户
-		center := platform.GetMnemonic()
-		centerAccount := platform.Mnemonic2Bench32([]byte(center))
-		centerPubkey, err := utils.GetPubkeyFromAddress(centerAccount)
+		//center := platform.GetMnemonic()
+		//centerAccount := platform.Mnemonic2Bench32([]byte(center))
+		center := platform.GeneratePrivateKey()
+		centerAccount := platform.PrivateKey2Bech32([]byte(center))
+		centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
 		if err != nil {
 			return err
 		}
@@ -289,7 +291,7 @@ func addList(floorPrice int64, listLimit int64) error {
 		}
 
 		// 3. 转账
-		hash, err := utils.SendTx(curRobot.Mnemonic, centerPubkey, centerPubkey, balanceInfo.OverallBalance, os.Getenv(constant.ROBOT_TICK), price, constant.BRC20_OP_TRANSFER)
+		hash, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, balanceInfo.OverallBalance, os.Getenv(constant.ROBOT_TICK), price, constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -339,23 +341,25 @@ func buy(floorPrice int64) error {
 	}
 
 	// 3. 获取当前机器人的fra余额
-	balance := utils.GetFraBalance(curRobot.Mnemonic)
+	balance := utils.GetFraBalance(curRobot.PrivateKey)
 	logrus.Infof("%d %s buy, balance %d, records len %d", latestRobotId, curRobot.Account, balance, len(records))
 
 	// 4. 转账并购买
-	for _, v := range records {
-		centerAccount := platform.Mnemonic2Bench32([]byte(v.CenterMnemonic))
-		centerPubkey, err := utils.GetPubkeyFromAddress(centerAccount)
+	for _, rec := range records {
+		//centerAccount := platform.Mnemonic2Bench32([]byte(v.CenterMnemonic))
+		//centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
+		centerAccount := platform.PrivateKey2Bech32([]byte(rec.CenterMnemonic))
+		centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
 		if err != nil {
 			return err
 		}
-		price, _, err := decimal.NewDecimalFromString(v.Price)
+		price, _, err := decimal.NewDecimalFromString(rec.Price)
 		if err != nil {
 			return err
 		}
-		logrus.Infof("listId %d, price %d", v.Id, price.Value.Int64())
-		priceDec, _, _ := decimal.NewDecimalFromString(v.Price)
-		amountDec, _, _ := decimal.NewDecimalFromString(v.Amount)
+		logrus.Infof("listId %d, price %d", rec.Id, price.Value.Int64())
+		priceDec, _, _ := decimal.NewDecimalFromString(rec.Price)
+		amountDec, _, _ := decimal.NewDecimalFromString(rec.Amount)
 		payment := new(big.Int).Mul(amountDec.Value, priceDec.Value)
 		if price.Value.Cmp(big.NewInt(floorPrice)) > 0 || (balance-payment.Uint64()-constant.TX_MIN_FEE) < 0 {
 			// 价格大于地板价
@@ -363,13 +367,13 @@ func buy(floorPrice int64) error {
 			continue
 		}
 		// 给中心化账户打钱
-		hash, err := utils.Transfer(curRobot.Mnemonic, centerPubkey, payment.String())
+		hash, err := utils.Transfer(curRobot.PrivateKey, centerPubKey, payment.String())
 		if err != nil {
 			return err
 		}
 		logrus.Infof("buy transfer to center hash: %s", hash)
 		// 更改挂单状态
-		listRecord := &model.ListRecord{Base: model.Base{Id: v.Id}, ToUser: curRobot.Account}
+		listRecord := &model.ListRecord{Base: model.Base{Id: rec.Id}, ToUser: curRobot.Account}
 		tx, err := db.RemoteMaster().Begin()
 		if err != nil {
 			return err
@@ -385,12 +389,12 @@ func buy(floorPrice int64) error {
 			return err
 		}
 
-		receiver, err := utils.GetPubkeyFromAddress(v.User)
+		receiver, err := utils.GetPubkeyFromAddress(rec.User)
 		if err != nil {
 			return err
 		}
 
-		hash, err = utils.SendTx(v.CenterMnemonic, receiver, toPubkey, v.Amount, v.Ticker, v.Price, constant.BRC20_OP_TRANSFER)
+		hash, err = utils.SendTx(rec.CenterMnemonic, receiver, toPubkey, rec.Amount, rec.Ticker, rec.Price, constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			return err
 		}

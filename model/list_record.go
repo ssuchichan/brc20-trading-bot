@@ -18,7 +18,7 @@ type ListRecord struct {
 	Price          string `json:"price,omitempty" db:"price"`
 	State          int    `json:"state,omitempty" db:"state"` // 0 挂单中 , 1 取消, 2 完成 3 待上架
 	ToUser         string `json:"to_user" db:"to_user"`
-	CenterMnemonic string `json:"center_mnemonic" db:"center_mnemonic"`
+	CenterMnemonic string `json:"center_mnemonic" db:"center_mnemonic"` // 原来存助记词，现在存私钥
 }
 
 func (l *ListRecord) SumListAmount(addr string) (int64, error) {

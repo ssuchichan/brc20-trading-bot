@@ -22,6 +22,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::raw::c_char;
+use globutils::wallet::restore_keypair_from_seckey_base64;
 use zei::serialization::ZeiFromToBytes;
 use zei::xfr::asset_record::{open_blind_asset_record, AssetRecordType};
 use zei::xfr::sig::XfrPublicKey;
@@ -78,7 +79,9 @@ pub extern "C" fn get_tx_str(
     let num = fra_amount_str.parse::<f64>().unwrap();
     let fra_price = (num * 1000000.0) as u64;
     let from_key_str = std::str::from_utf8(from_key).unwrap();
-    let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
+
     let to_dec = b64dec(to_pub_key).unwrap();
     let to = XfrPublicKey::zei_from_bytes(to_dec.as_slice()).unwrap();
     let fra_dec = b64dec(fra_receiver_key).unwrap();
@@ -191,7 +194,9 @@ pub extern "C" fn get_transfer_tx_str(
     let url_str = std::str::from_utf8(url).unwrap();
 
     let from_key_str = std::str::from_utf8(from_key).unwrap();
-    let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
+
     let fra_dec = b64dec(fra_receiver_key).unwrap();
     let fra_receiver = XfrPublicKey::zei_from_bytes(fra_dec.as_slice()).unwrap();
 
@@ -578,7 +583,8 @@ pub extern "C" fn get_user_fra_balance(
     let url_str = std::str::from_utf8(url).unwrap();
 
     let from_key_str = std::str::from_utf8(from_key).unwrap();
-    let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
 
     // build input
     let mut input_amount = 0;
