@@ -293,7 +293,7 @@ func (l *ListRecord) FindOrderPageList(pageNo int, pageCount int, params UserTic
 
 func (l *ListRecord) GetRobotListRecord() ([]*ListRecord, error) {
 	r := &Robot{}
-	robots, err := r.AllListAcounts()
+	robots, err := r.AllListAccounts()
 	if err != nil {
 		return nil, err
 	}

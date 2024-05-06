@@ -7,8 +7,9 @@
 * Redis
 
 ## 创建表
-Use `table.sql` to create tables.
-
+* Use `table.sql` to create tables.
+* 挂单账户和购买账户分别在表`robot_list`和`robot_buy`中。
+如果不提前向这两个表插入账户数据，则会在每个表生成100个账户。
 ## 环境变量
 ```bash
 # 本机数据库URL  postgres://{user}:{password}@{ip}/{db}
