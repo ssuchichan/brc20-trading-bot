@@ -29,8 +29,8 @@ func (r *Robot) CreateBatch() (bool, error) {
 	)
 	for i := 0; i < 200; i++ {
 		curMnemonic := platform.GetMnemonic()
-		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic))
-		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))
+		privateKey := platform.Mnemonic2PrivateKey([]byte(curMnemonic)) // base64 private key
+		curAccount := platform.Mnemonic2Bench32([]byte(curMnemonic))    // address
 		if i < 100 {
 			robotList = append(robotList, &Robot{
 				Account:    curAccount,

@@ -91,7 +91,7 @@ func main() {
 	}
 	logrus.Info("Floor prices: ", floorPrices)
 	logrus.Info("Current floor price: ", floorPrices[priceIndex])
-	logrus.Info("Floor prices updating interval: ", priceUpdateInterval)
+	logrus.Infof("Floor prices updating interval: %ds", priceUpdateInterval)
 	logrus.Info("List limit: ", listLimit)
 	logrus.Infof("List interval: %ds, buy inteval: %ds", listInterval, buyInterval)
 
