@@ -386,6 +386,21 @@ pub extern "C" fn mnemonic_to_private_key(
 }
 
 #[no_mangle]
+pub extern "C" fn mnemonic_to_public_key(
+    mnemonic_ptr: *mut u8,
+    mnemonic_len: u32,
+) -> *const c_char {
+    let mnemonic = unsafe { slice::from_raw_parts(mnemonic_ptr, mnemonic_len as usize) };
+    let mnemonic_str = std::str::from_utf8(mnemonic).unwrap();
+    let key_pair = wallet::restore_keypair_from_mnemonic_default(mnemonic_str).unwrap();
+    let sk = key_pair.get_pk().zei_to_bytes();
+    let sk_base64 = engine::general_purpose::URL_SAFE.encode(sk);
+    let c_string = CString::new(sk_base64).unwrap();
+
+    c_string.into_raw()
+}
+
+#[no_mangle]
 pub extern "C" fn generate_private_key() -> *const c_char {
     let mnemonic = wallet::generate_mnemonic_default();
     let key_pair = wallet::restore_keypair_from_mnemonic_default(&mnemonic).unwrap();

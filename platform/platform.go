@@ -25,6 +25,7 @@ const char *generate_mnemonic_default();
 
 const char *mnemonic_to_bench32(char *fromSigPtr, uint32_t fromSigLen);
 const char* mnemonic_to_private_key(char* mnemonicPtr, uint32_t mnemonicLen);
+const char* mnemonic_to_public_key(char* mnemonicPtr, uint32_t mnemonicLen);
 const char* generate_private_key();
 
 const char* private_key_to_bech32(char* skBase64Ptr, uint32_t keyLen);
@@ -106,6 +107,12 @@ func Mnemonic2Bench32(fromSig []byte) string {
 
 func Mnemonic2PrivateKey(mnemonic []byte) string {
 	result := C.mnemonic_to_private_key((*C.char)(unsafe.Pointer(&mnemonic[0])), C.uint32_t(len(mnemonic)))
+	str := C.GoString(result)
+	return str
+}
+
+func Mnemonic2PublicKey(mnemonic []byte) string {
+	result := C.mnemonic_to_public_key((*C.char)(unsafe.Pointer(&mnemonic[0])), C.uint32_t(len(mnemonic)))
 	str := C.GoString(result)
 	return str
 }
