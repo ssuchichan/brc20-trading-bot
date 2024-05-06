@@ -103,6 +103,7 @@ func main() {
 		//mintTicker.Stop()
 		addListTicker.Stop()
 		buyTicker.Stop()
+		priceTicker.Stop()
 	}()
 
 	for {
