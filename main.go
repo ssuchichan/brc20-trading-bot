@@ -24,7 +24,7 @@ func initRobot() error {
 	r := &model.Robot{}
 	ok, err := r.CreateBatch()
 	if err != nil {
-		logrus.Info("Init robot accounts...ok")
+		logrus.Info("Init robot accounts error: ", err)
 		return err
 	}
 
