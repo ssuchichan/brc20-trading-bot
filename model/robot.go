@@ -3,7 +3,6 @@ package model
 import (
 	"brc20-trading-bot/db"
 	"brc20-trading-bot/platform"
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"time"
 )
@@ -75,7 +74,7 @@ func (r *Robot) IsCreated() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	fmt.Println(resultBuy, resultList)
+
 	return resultBuy > 0 && resultList > 0, nil
 }
 
