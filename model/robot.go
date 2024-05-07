@@ -74,7 +74,7 @@ func (r *Robot) IsCreated() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
+	logrus.Infof("RobotList counts: %d, robotBuy counts: %d", resultList, resultBuy)
 	return resultBuy > 0 && resultList > 0, nil
 }
 
