@@ -90,6 +90,7 @@ func main() {
 		}
 		floorPrices = append(floorPrices, p)
 	}
+	tick := os.Getenv("ROBOT_TICK")
 	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
 	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
 	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
@@ -98,6 +99,7 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	logrus.Info("Tick: ", tick)
 	logrus.Info("Floor prices: ", floorPrices)
 	logrus.Info("Current floor price: ", floorPrices[priceIndex])
 	logrus.Infof("Floor prices updating interval: %ds", priceUpdateInterval)
@@ -136,7 +138,7 @@ func main() {
 				continue
 			}
 			curFloorPrice := floorPrices[priceIndex]
-			err = addList(curFloorPrice, listLimit, int64(firstRobotID), int64(robotCount))
+			err = addList(curFloorPrice, listLimit, int64(firstRobotID), int64(robotCount), tick)
 			if err != nil {
 				utils.GetLogger().Errorf("list tick err:%v", err)
 				continue
@@ -239,7 +241,7 @@ func isMintFinished(token *model.Token) (bool, error) {
 	return true, nil
 }
 
-func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount int64) error {
+func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount int64, ticker string) error {
 	// S:L:L:R means Latest List Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
@@ -261,7 +263,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 
 	// 当前list总量
 	rec := &model.ListRecord{}
-	totalList, err := rec.SumListAmount(r.Account)
+	totalList, err := rec.SumListAmount(ticker)
 	if err != nil {
 		logrus.Error("[List] get list sum: ", err)
 		return err
@@ -270,11 +272,12 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		logrus.Infof("[List] reach list limit, total listed: %d, list limit: %d", totalList, listLimit)
 		return nil
 	}
-	logrus.Info("[List] current list amount: %d", totalList)
-	ticker := os.Getenv(constant.ROBOT_TICK)
+	logrus.Info("[List] current list amount: ", totalList)
+
 	delta := listLimit - totalList
 	tx, err := db.RemoteMaster().Begin()
 	if err != nil {
+		logrus.Error("[List] remoteDB transaction: ", err)
 		return err
 	}
 	var checkRetry int
@@ -286,6 +289,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 			return err
 		}
 		amount, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
+		logrus.Infof("[List] current robot: %s, tick: %s, balance: %d", curRobot.Account, ticker, amount)
 		if amount == 0 {
 			if (checkRetry + 1) == int(robotCount) {
 				return fmt.Errorf("[List] all accounts are incificient")
@@ -298,7 +302,8 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 			curRobot = nextRobot
 			continue
 		}
-		price := fmt.Sprintf("%d", floorPrice+floorPrice*int64(rand.Intn(101)/100))
+		// 地板价浮动0-3%
+		price := fmt.Sprintf("%d", floorPrice+floorPrice*int64(rand.Intn(4)/100))
 		// center 挂单中心账户
 		//center := platform.GetMnemonic()
 		//centerAccount := platform.Mnemonic2Bench32([]byte(center))
@@ -306,6 +311,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		centerAccount := platform.PrivateKey2Bech32([]byte(center))
 		centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
 		if err != nil {
+			logrus.Error("[List] get pubKey from address: ", err)
 			return err
 		}
 		listRecord := &model.ListRecord{
@@ -323,7 +329,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		}
 
 		// 3. 转账
-		hash, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, balanceInfo.OverallBalance, os.Getenv(constant.ROBOT_TICK), price, constant.BRC20_OP_TRANSFER)
+		hash, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, balanceInfo.OverallBalance, ticker, price, constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -339,6 +345,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		}
 
 		delta -= amount
+		logrus.Info("[List] add list ok")
 	}
 
 	return tx.Commit()
