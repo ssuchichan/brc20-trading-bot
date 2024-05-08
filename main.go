@@ -40,19 +40,11 @@ func initRobot() error {
 }
 
 func init() {
-	// S:L:M:R means Latest Mint Robot
-	//db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
-
 	var (
 		firstRobotListID uint64
 		firstRobotBuyID  uint64
 		err              error
 	)
-
-	// Least List Robot
-	db.MRedis().SetNX(context.Background(), "S:L:L:R", firstRobotListID, time.Duration(0))
-	// Least Buy Robot
-	db.MRedis().SetNX(context.Background(), "S:L:B:R", firstRobotBuyID, time.Duration(0))
 
 	if err = initRobot(); err != nil {
 		logrus.Error(err)
@@ -61,8 +53,22 @@ func init() {
 
 	r := &model.Robot{}
 	firstRobotListID, err = r.GetFirstRobotList()
+	if err != nil {
+		logrus.Fatal("Get first listRobot ID: ", err)
+	}
 	firstRobotBuyID, err = r.GetFirstRobotBuy()
+	if err != nil {
+		logrus.Fatal("Get first buyRobot ID: ", err)
+	}
 	logrus.Infof("The first listRobotId: %d, the first buyRobotId: %d", firstRobotListID, firstRobotBuyID)
+
+	// S:L:M:R means Latest Mint Robot
+	//db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
+	// Least List Robot
+	db.MRedis().SetNX(context.Background(), "S:L:L:R", firstRobotListID, time.Duration(0))
+	// Least Buy Robot
+	db.MRedis().SetNX(context.Background(), "S:L:B:R", firstRobotBuyID, time.Duration(0))
+
 }
 
 func main() {
@@ -118,15 +124,38 @@ func main() {
 		//		continue
 		//	}
 		case <-addListTicker.C:
+			r := &model.Robot{}
+			firstRobotID, err := r.GetFirstRobotList()
+			if err != nil {
+				logrus.Error("Get the first listRobotId: ", err)
+				continue
+			}
+			robotCount, _ := r.GetListRobotCount()
+			if robotCount == 0 {
+				logrus.Error("The listRobot count is 0")
+				continue
+			}
 			curFloorPrice := floorPrices[priceIndex]
-			err := addList(curFloorPrice, listLimit)
+			err = addList(curFloorPrice, listLimit, int64(firstRobotID), int64(robotCount))
 			if err != nil {
 				utils.GetLogger().Errorf("list tick err:%v", err)
 				continue
 			}
 		case <-buyTicker.C:
+			r := &model.Robot{}
+			firstRobotID, err := r.GetFirstRobotList()
+			if err != nil {
+				logrus.Error("Get the first listRobotId: ", err)
+				continue
+			}
+			robotCount, _ := r.GetBuyRobotCount()
+			if robotCount == 0 {
+				logrus.Error("The buyRobot count is 0")
+				continue
+			}
+
 			curFloorPrice := floorPrices[priceIndex]
-			err := buy(curFloorPrice)
+			err = buy(curFloorPrice, int64(firstRobotID), int64(robotCount))
 			if err != nil {
 				utils.GetLogger().Errorf("buy tick err:%v", err)
 				continue
@@ -210,39 +239,38 @@ func isMintFinished(token *model.Token) (bool, error) {
 	return true, nil
 }
 
-func addList(floorPrice int64, listLimit int64) error {
+func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount int64) error {
 	// S:L:L:R means Latest List Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
+		logrus.Error("[List] redis: ", err)
 		return err
 	}
-
+	logrus.Info("[List] the listRobot id: ", latestRobotId)
 	// 1. 获取当前robot
 	r := &model.Robot{}
 	curRobot, err := r.GetRobotListById(uint64(latestRobotId))
 	if err != nil {
+		logrus.Error("[List] get listRobot id: ", err)
 		return err
-	}
-	robotCount, _ := r.GetListRobotCount()
-	if robotCount == 0 {
-		return fmt.Errorf("the accounts count is 0")
 	}
 
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%int64(robotCount), time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%robotCount+firstRobotID, time.Duration(0))
 	}()
 
 	// 当前list总量
 	rec := &model.ListRecord{}
 	totalList, err := rec.SumListAmount(r.Account)
 	if err != nil {
+		logrus.Error("[List] get list sum: ", err)
 		return err
 	}
 	if totalList >= listLimit {
-		logrus.Infof("Reach list limit, total listed: %d, list limit: %d", totalList, listLimit)
+		logrus.Infof("[List] reach list limit, total listed: %d, list limit: %d", totalList, listLimit)
 		return nil
 	}
-	logrus.Info("Current list amount: %d", totalList)
+	logrus.Info("[List] current list amount: %d", totalList)
 	ticker := os.Getenv(constant.ROBOT_TICK)
 	delta := listLimit - totalList
 	tx, err := db.RemoteMaster().Begin()
@@ -260,13 +288,13 @@ func addList(floorPrice int64, listLimit int64) error {
 		amount, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
 		if amount == 0 {
 			if (checkRetry + 1) == int(robotCount) {
-				return fmt.Errorf("all accounts are incificient")
+				return fmt.Errorf("[List] all accounts are incificient")
 			}
-			nextRobot, err := curRobot.NextListRobot(robotCount)
+			nextRobot, err := curRobot.NextListRobot(uint64(robotCount))
 			if err != nil {
 				return err
 			}
-			logrus.Infof("%s account is incificient balance, next account: %s", curRobot.Account, nextRobot.Account)
+			logrus.Infof("[List] %s account is incificient balance, next account: %s", curRobot.Account, nextRobot.Account)
 			curRobot = nextRobot
 			continue
 		}
@@ -300,7 +328,7 @@ func addList(floorPrice int64, listLimit int64) error {
 			tx.Rollback()
 			return err
 		}
-		logrus.Infof("list transfer hash: %s", hash)
+		logrus.Infof("[List] list transfer hash: %s", hash)
 
 		// 4. 确认转账
 		listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
@@ -316,25 +344,24 @@ func addList(floorPrice int64, listLimit int64) error {
 	return tx.Commit()
 }
 
-func buy(floorPrice int64) error {
-	logrus.Info("buy, current floor price ", floorPrice)
+func buy(floorPrice int64, firstRobotID int64, robotCount int64) error {
+	logrus.Info("[Buy] current floor price ", floorPrice)
 	// S:L:L:R means Latest Buy Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:B:R").Int64()
 	if err != nil {
+		logrus.Error("[Buy] redis: ", err)
 		return err
 	}
 	// 1. 获取当前robot
 	r := &model.Robot{}
 	curRobot, err := r.GetRobotBuyById(uint64(latestRobotId))
 	if err != nil {
+		logrus.Error("[Buy] get buyRobotId: ", err)
 		return err
 	}
-	robotCount, _ := r.GetBuyRobotCount()
-	if robotCount == 0 {
-		return fmt.Errorf("the accounts count is 0")
-	}
+
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%int64(robotCount), time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%robotCount+firstRobotID, time.Duration(0))
 	}()
 
 	// 2. 获取机器人订单
@@ -346,7 +373,7 @@ func buy(floorPrice int64) error {
 
 	// 3. 获取当前机器人的fra余额
 	balance := utils.GetFraBalance(curRobot.PrivateKey)
-	logrus.Infof("%d %s buy, balance %d, records len %d", latestRobotId, curRobot.Account, balance, len(records))
+	logrus.Infof("[Buy] %d %s buy, balance %d, records len %d", latestRobotId, curRobot.Account, balance, len(records))
 
 	// 4. 转账并购买
 	for _, rec := range records {
@@ -361,7 +388,7 @@ func buy(floorPrice int64) error {
 		if err != nil {
 			return err
 		}
-		logrus.Infof("listId %d, price %d", rec.Id, price.Value.Int64())
+		logrus.Infof("[Buy] listId %d, price %d", rec.Id, price.Value.Int64())
 		priceDec, _, _ := decimal.NewDecimalFromString(rec.Price)
 		amountDec, _, _ := decimal.NewDecimalFromString(rec.Amount)
 		payment := new(big.Int).Mul(amountDec.Value, priceDec.Value)
@@ -375,7 +402,7 @@ func buy(floorPrice int64) error {
 		if err != nil {
 			return err
 		}
-		logrus.Infof("buy transfer to center hash: %s", hash)
+		logrus.Infof("[Buy] buy transfer to center hash: %s", hash)
 		// 更改挂单状态
 		listRecord := &model.ListRecord{Base: model.Base{Id: rec.Id}, ToUser: curRobot.Account}
 		tx, err := db.RemoteMaster().Begin()
@@ -402,7 +429,7 @@ func buy(floorPrice int64) error {
 		if err != nil {
 			return err
 		}
-		logrus.Infof("buy send brc20 hash: %s ", hash)
+		logrus.Infof("[Buy] buy send brc20 hash: %s ", hash)
 
 		if err := tx.Commit(); err != nil {
 			return err

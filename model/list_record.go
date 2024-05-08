@@ -23,7 +23,7 @@ type ListRecord struct {
 
 func (l *ListRecord) SumListAmount(addr string) (int64, error) {
 	var total int64
-	err := db.RemoteMaster().Get(&total, "SELECT sum(Amount) FROM list_record WHERE state=$1 AND user=$2", constant.ListFinished, addr)
+	err := db.RemoteMaster().Get(&total, "SELECT sum(amount) FROM list_record WHERE state=$1 AND user=$2", constant.ListFinished, addr)
 	return total, err
 }
 
