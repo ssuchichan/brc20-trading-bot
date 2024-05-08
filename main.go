@@ -273,48 +273,43 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		return nil
 	}
 	logrus.Info("[List] current list amount: ", totalList)
-
 	delta := listLimit - totalList
 	tx, err := db.RemoteMaster().Begin()
 	if err != nil {
 		logrus.Error("[List] remoteDB transaction: ", err)
 		return err
 	}
-	var checkRetry int
-	for delta > 0 {
-		// 检查当前机器人账户余额
-		b := &model.BRC20TokenBalance{}
-		balanceInfo, err := b.GetByTickerAndAddress(ticker, curRobot.Account)
-		if err != nil {
-			return err
-		}
-		amount, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
-		logrus.Infof("[List] current robot: %s, tick: %s, balance: %d", curRobot.Account, ticker, amount)
-		if amount == 0 {
-			if (checkRetry + 1) == int(robotCount) {
-				return fmt.Errorf("[List] all accounts are incificient")
-			}
-			nextRobot, err := curRobot.NextListRobot(uint64(robotCount))
-			if err != nil {
-				return err
-			}
-			logrus.Infof("[List] %s account is incificient balance, next account: %s", curRobot.Account, nextRobot.Account)
-			curRobot = nextRobot
-			continue
-		}
-		// 地板价浮动0-3%
-		price := fmt.Sprintf("%d", floorPrice+floorPrice*int64(rand.Intn(4)/100))
-		// center 挂单中心账户
-		//center := platform.GetMnemonic()
-		//centerAccount := platform.Mnemonic2Bench32([]byte(center))
-		center := platform.GeneratePrivateKey()
-		centerAccount := platform.PrivateKey2Bech32([]byte(center))
-		centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
-		if err != nil {
-			logrus.Error("[List] get pubKey from address: ", err)
-			return err
-		}
-		listRecord := &model.ListRecord{
+
+	// 检查当前机器人账户余额
+	b := &model.BRC20TokenBalance{}
+	balanceInfo, err := b.GetByTickerAndAddress(ticker, curRobot.Account)
+	if err != nil {
+		logrus.Error("[List] get ticker info: ", err)
+		return err
+	}
+	brc20Balance, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
+	if brc20Balance == 0 {
+		logrus.Info("[List] inefficient brc20 balance account: ", curRobot.Account)
+		return nil
+	}
+	logrus.Infof("[List] current robot: %s, tick: %s, balance: %d", curRobot.Account, ticker, brc20Balance)
+
+	// 挂单中心账户
+	center := platform.GeneratePrivateKey()
+	centerAccount := platform.PrivateKey2Bech32([]byte(center))
+	centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
+	if err != nil {
+		logrus.Error("[List] get pubKey from address: ", err)
+		return err
+	}
+	// 地板价浮动0-3%
+	price := fmt.Sprintf("%d", floorPrice+floorPrice*int64(rand.Intn(4)/100))
+	// 随机产生挂单数量
+	randAmount := rand.Int63n(delta + 1)
+	var listRecord *model.ListRecord
+	if brc20Balance <= randAmount {
+		// 余额小于随机数量，把余额全部挂单
+		listRecord = &model.ListRecord{
 			Ticker:         ticker,
 			User:           curRobot.Account,
 			Price:          price,
@@ -322,33 +317,46 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 			CenterMnemonic: center,
 			State:          constant.ListWaiting,
 		}
-		lastInsertId, err := listRecord.InsertToDB()
-		if err != nil {
-			tx.Rollback()
-			return err
+	} else {
+		// 余额大于随机数量，把随机数量挂单
+		listRecord = &model.ListRecord{
+			Ticker:         ticker,
+			User:           curRobot.Account,
+			Price:          price,
+			Amount:         strconv.Itoa(int(randAmount)),
+			CenterMnemonic: center,
+			State:          constant.ListWaiting,
 		}
-
-		// 3. 转账
-		hash, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, balanceInfo.OverallBalance, ticker, price, constant.BRC20_OP_TRANSFER)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-		logrus.Infof("[List] list transfer hash: %s", hash)
-
-		// 4. 确认转账
-		listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
-		err = listRecordTemp.ConfirmList()
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		delta -= amount
-		logrus.Info("[List] add list ok")
 	}
 
-	return tx.Commit()
+	lastInsertId, err := listRecord.InsertToDB()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 3. 转账
+	hash, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, price, constant.BRC20_OP_TRANSFER)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	logrus.Infof("[List] list transfer hash: %s", hash)
+
+	// 4. 确认转账
+	listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
+	if err = listRecordTemp.ConfirmList(); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	logrus.Info("[List] add list ok")
+	if err = tx.Commit(); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return nil
 }
 
 func buy(floorPrice int64, firstRobotID int64, robotCount int64) error {

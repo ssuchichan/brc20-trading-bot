@@ -120,17 +120,15 @@ func (r *Robot) GetById(id uint64) (*Robot, error) {
 	return &res, err
 }
 
-func (r *Robot) NextListRobot(robotCount uint64) (*Robot, error) {
+func (r *Robot) NextListRobot() (*Robot, error) {
 	var res Robot
-	nextID := (r.Id + 1) % robotCount
-	err := db.Master().Get(&res, "select * from robot_list where id = $1", nextID)
+	err := db.Master().Get(&res, "select * from robot_list where id = $1", r.Id+1)
 	return &res, err
 }
 
-func (r *Robot) NextBuyRobot(robotCount uint64) (*Robot, error) {
+func (r *Robot) NextBuyRobot() (*Robot, error) {
 	var res Robot
-	nextID := (r.Id + 1) % robotCount
-	err := db.Master().Get(&res, "select * from robot_buy where id = $1", nextID)
+	err := db.Master().Get(&res, "select * from robot_buy where id = $1", r.Id+1)
 	return &res, err
 }
 
