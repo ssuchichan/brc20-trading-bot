@@ -78,8 +78,11 @@ func main() {
 	floorPricesStr := os.Getenv("FLOOR_PRICES")
 	prices := strings.Split(floorPricesStr, ",")
 	for i := 0; i < len(prices); i++ {
-		p, _ := strconv.ParseInt(prices[i], 10, 64)
-		floorPrices = append(floorPrices, p*1_000_000)
+		p, err := strconv.ParseInt(prices[i], 10, 64)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		floorPrices = append(floorPrices, p)
 	}
 	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
 	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
@@ -87,7 +90,7 @@ func main() {
 	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
 	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
 	if err != nil {
-		panic(err)
+		logrus.Fatal(err)
 	}
 	logrus.Info("Floor prices: ", floorPrices)
 	logrus.Info("Current floor price: ", floorPrices[priceIndex])
