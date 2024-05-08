@@ -4,6 +4,7 @@ import (
 	"brc20-trading-bot/constant"
 	"brc20-trading-bot/db"
 	"database/sql"
+	"strconv"
 
 	"time"
 
@@ -21,10 +22,18 @@ type ListRecord struct {
 	CenterMnemonic string `json:"center_mnemonic" db:"center_mnemonic"` // 原来存助记词，现在存私钥
 }
 
-func (l *ListRecord) SumListAmount(addr string) (int64, error) {
-	var total int64
-	err := db.RemoteMaster().Get(&total, "SELECT sum(amount) FROM list_record WHERE state=$1 AND user=$2", constant.ListFinished, addr)
-	return total, err
+func (l *ListRecord) SumListAmount(tick string) (int64, error) {
+	var (
+		total    int
+		totalStr string
+		err      error
+	)
+	err = db.RemoteMaster().Get(&totalStr, "SELECT sum(amount) FROM list_record WHERE state=$1 AND ticker=$2", constant.ListFinished, tick)
+	if totalStr == "" {
+		return 0, nil
+	}
+	total, err = strconv.Atoi(totalStr)
+	return int64(total), err
 }
 
 func (l *ListRecord) InsertToDB() (int64, error) {
