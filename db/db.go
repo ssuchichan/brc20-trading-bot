@@ -13,7 +13,7 @@ var master struct {
 	dbx atomic.Value
 }
 
-var remoteMaster struct{
+var remoteMaster struct {
 	dbx atomic.Value
 }
 
@@ -27,9 +27,9 @@ func RemoteMaster() *sqlx.DB {
 
 func init() {
 	var (
-		dbx *sqlx.DB
+		dbx       *sqlx.DB
 		remoteDbx *sqlx.DB
-		err error
+		err       error
 	)
 	dbURL := os.Getenv("DATABASE_URL")
 	dbx, err = sqlx.Connect("postgres", dbURL)
@@ -37,7 +37,6 @@ func init() {
 		panic(err)
 	}
 	master.dbx.Store(dbx)
-
 
 	dbURLRemote := os.Getenv("REMOTE_DATABASE_URL")
 	remoteDbx, err = sqlx.Connect("postgres", dbURLRemote)
