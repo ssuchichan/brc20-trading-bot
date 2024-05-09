@@ -298,7 +298,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	}
 	brc20Balance, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
 	if brc20Balance == 0 {
-		logrus.Info("[List] inefficient brc20 balance account: ", curRobot.Account)
+		logrus.Info("[List] inefficient balance, account: %s, balance: %s", curRobot.Account, balanceInfo.OverallBalance)
 		return nil
 	}
 	logrus.Infof("[List] current robot: %s, token: %s, balance: %d", curRobot.Account, ticker, brc20Balance)
@@ -366,7 +366,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		return err
 	}
 
-	logrus.Info("[List] add list ok, txHash: %s, token: %s, amount: %s", result.Hash, ticker, listRecord.Amount)
+	logrus.Info("[List] add list ok, txHash: %s, token: %s, amount: %s, price: %s", result.Hash, ticker, listRecord.Amount, price)
 
 	return nil
 }
