@@ -8,6 +8,7 @@ import (
 	"brc20-trading-bot/platform"
 	"brc20-trading-bot/utils"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -18,6 +19,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+type TendermintResult struct {
+	Code      int    `json:"code"`
+	Data      string `json:"data"`
+	Log       string `json:"log"`
+	Codespace string `json:"codespace"`
+	Hash      string `json:"hash"`
+}
 
 func initRobot() error {
 	logrus.Info("Init accounts...")
@@ -292,7 +301,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		logrus.Info("[List] inefficient brc20 balance account: ", curRobot.Account)
 		return nil
 	}
-	logrus.Infof("[List] current robot: %s, tick: %s, balance: %d", curRobot.Account, ticker, brc20Balance)
+	logrus.Infof("[List] current robot: %s, token: %s, balance: %d", curRobot.Account, ticker, brc20Balance)
 
 	// 挂单中心账户
 	center := platform.GeneratePrivateKey()
@@ -336,12 +345,14 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	}
 
 	// 3. 转账
-	hash, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, price, constant.BRC20_OP_TRANSFER)
+	resp, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, price, constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	logrus.Infof("[List] list transfer hash: %s", hash)
+
+	var result TendermintResult
+	_ = json.Unmarshal([]byte(resp), &result)
 
 	// 4. 确认转账
 	listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
@@ -350,11 +361,12 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		return err
 	}
 
-	logrus.Info("[List] add list ok")
 	if err = tx.Commit(); err != nil {
 		tx.Rollback()
 		return err
 	}
+
+	logrus.Info("[List] add list ok, txHash: %s, token: %s, amount: %s", result.Hash, ticker, listRecord.Amount)
 
 	return nil
 }
