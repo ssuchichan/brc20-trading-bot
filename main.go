@@ -324,7 +324,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 			Price:          price,
 			Amount:         balanceInfo.OverallBalance,
 			CenterMnemonic: center,
-			State:          constant.ListWaiting,
+			State:          constant.Listing,
 		}
 	} else {
 		// 余额大于随机数量，把随机数量挂单
@@ -334,7 +334,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 			Price:          price,
 			Amount:         strconv.Itoa(int(randAmount)),
 			CenterMnemonic: center,
-			State:          constant.ListWaiting,
+			State:          constant.Listing,
 		}
 	}
 
