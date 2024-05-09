@@ -24,7 +24,18 @@ func GetOwnedUTXO(pubKey string, endpoint string) (sid uint64, record []byte, er
 }
 
 func SendTx(from string, receiverPubKey string, toPubKey string, amount string, tick string, fraPrice string, brcType string) (string, error) {
-	txJsonString := platform.GetTxBody([]byte(from), []byte(receiverPubKey), []byte(toPubKey), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))), []byte(amount), []byte(tick), []byte(fraPrice), []byte(brcType))
+	txJsonString := platform.GetTxBody(
+		[]byte(from),
+		[]byte(receiverPubKey),
+		[]byte(toPubKey),
+		[]byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))),
+		[]byte(amount),
+		[]byte(tick),
+		[]byte(fraPrice),
+		[]byte(brcType))
+	if len(txJsonString) == 0 {
+		return "", fmt.Errorf("insufficient FRA")
+	}
 	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
 	return sendRequest(resultTx)
 }
@@ -54,6 +65,9 @@ func sendRequest(resultTx string) (string, error) {
 
 func Transfer(from string, receiverPubKey string, amount string) (string, error) {
 	txJsonString := platform.GetTransferBody([]byte(from), []byte(receiverPubKey), []byte(amount), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
+	if len(txJsonString) == 0 {
+		return "", fmt.Errorf("insufficient FRA")
+	}
 	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
 	return sendRequest(resultTx)
 }
