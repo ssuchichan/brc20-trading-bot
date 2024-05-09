@@ -4,6 +4,7 @@ import (
 	"brc20-trading-bot/constant"
 	"brc20-trading-bot/db"
 	"database/sql"
+	"fmt"
 	"strconv"
 
 	"time"
@@ -20,6 +21,7 @@ type ListRecord struct {
 	State          int    `json:"state,omitempty" db:"state"` // 0 挂单中 , 1 取消, 2 完成 3 待上架
 	ToUser         string `json:"to_user" db:"to_user"`
 	CenterMnemonic string `json:"center_mnemonic" db:"center_mnemonic"` // 原来存助记词，现在存私钥
+	CenterUser     string `json:"center_user" db:"center_user"`
 }
 
 func (l *ListRecord) SumListAmount(tick string) (int64, error) {
@@ -300,15 +302,15 @@ func (l *ListRecord) FindOrderPageList(pageNo int, pageCount int, params UserTic
 	return res, nil
 }
 
-func (l *ListRecord) GetRobotListRecord() ([]*ListRecord, error) {
+func (l *ListRecord) GetRobotListRecord(token string) ([]*ListRecord, error) {
 	r := &Robot{}
 	robots, err := r.AllListAccounts()
 	if err != nil {
 		return nil, err
 	}
-
 	var result []*ListRecord
-	q, a, err := sqlx.In("select * from list_record where state = 0 and \"user\" in (?) order by price DESC;", robots)
+	sqlQuery := fmt.Sprintf("select * from list_record where ticker='%s' and state = 0 and \"user\" in (?) order by price DESC", token)
+	q, a, err := sqlx.In(sqlQuery, robots)
 	if err != nil {
 		return nil, err
 	}
