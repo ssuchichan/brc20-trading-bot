@@ -193,16 +193,14 @@ pub extern "C" fn get_transfer_tx_str(
     let url_str = std::str::from_utf8(url).unwrap();
 
     let from_key_str = std::str::from_utf8(from_key).unwrap();
-    //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
     let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
 
     let fra_dec = b64dec(fra_receiver_key).unwrap();
     let fra_receiver = XfrPublicKey::zei_from_bytes(fra_dec.as_slice()).unwrap();
 
-    let fra_amount = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
-    let fra_amount_str = std::str::from_utf8(fra_amount).unwrap();
-    let num = fra_amount_str.parse::<f64>().unwrap();
-    let fra_price = (num * 1000000.0) as u64;
+    let fra_price = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
+    let fra_price_str = std::str::from_utf8(fra_price).unwrap();
+    let fra_price = fra_price_str.parse::<u64>().unwrap();
 
     let asset_record_type = AssetRecordType::from_flags(false, false);
 
@@ -228,7 +226,7 @@ pub extern "C" fn get_transfer_tx_str(
             op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
                 .unwrap();
             if input_amount > fra_price + TX_FEE_MIN_V0 {
-                // if input big than trans amount
+                // if input bigger than trans amount
                 break;
             }
         }
