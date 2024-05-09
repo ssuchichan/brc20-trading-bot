@@ -40,3 +40,15 @@ func TestSendToAirDropAccount(t *testing.T) {
 	assert.Nil(t, err)
 	fmt.Println(res)
 }
+
+func TestAddressToPubKey(t *testing.T) {
+	pk1, err := GetPubkeyFromAddress("fra1wnfcfahep40q2mjz6jw42ukylu72dp4c5rmcvvu4mwxn5urk825s8zfxpm") // dNOE9vkNXgVuQtSdVXLE_zymhrig94YzlduNOnB2Oqk=
+	assert.Nil(t, err)
+	fmt.Println(pk1)
+	pk2, err := GetPubkeyFromAddress("fra1jfs43ad2m737dqp523s4v3j9sh4xmrum8s0uc4mah3qujpurkats8wcpq4") // kmFY9arfo-aANFRhVkZFheptj5s8H8xXfbxByQeDt1c=
+	assert.Nil(t, err)
+	fmt.Println(pk2)
+	pk3, err := GetPubkeyFromAddress("fra1a8xal50pwjhl6z8u7e5rdjzgsj4fhhp8nsur8cc7t8p0fss6euks8msz52") // 6c3f0eF0r_0I_PZoNshIhKqb3CecODPjHlnC9MIazy0=
+	assert.Nil(t, err)
+	fmt.Println(pk3)
+}

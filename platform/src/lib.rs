@@ -100,19 +100,16 @@ pub extern "C" fn get_tx_str(
     .unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
-        if oar.asset_type != ASSET_TYPE_FRA {
+        if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
             continue;
         }
         t_amout = oar.amount;
         input_amount += t_amout;
-
-        if t_amout != 0 {
-            op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
-                .unwrap();
-            if input_amount > fra_price + TX_FEE_MIN_V0 {
-                // if input bigger than trans amount
-                break;
-            }
+        op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
+            .unwrap();
+        if input_amount > fra_price + TX_FEE_MIN_V0 {
+            // if input bigger than trans amount
+            break;
         }
     }
 
@@ -216,19 +213,16 @@ pub extern "C" fn get_transfer_tx_str(
     .unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
-        if oar.asset_type != ASSET_TYPE_FRA {
+        if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
             continue;
         }
         t_amout = oar.amount;
         input_amount += t_amout;
-
-        if t_amout != 0 {
-            op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
-                .unwrap();
-            if input_amount > fra_price + TX_FEE_MIN_V0 {
-                // if input bigger than trans amount
-                break;
-            }
+        op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
+            .unwrap();
+        if input_amount > fra_price + TX_FEE_MIN_V0 {
+            // if input bigger than trans amount
+            break;
         }
     }
 
@@ -498,19 +492,16 @@ pub extern "C" fn get_send_robot_batch_tx(
     .unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
-        if oar.asset_type != ASSET_TYPE_FRA {
+        if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
             continue;
         }
         t_amout = oar.amount;
         input_amount += t_amout;
-
-        if t_amout != 0 {
-            op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
-                .unwrap();
-            if input_amount > fra_price + TX_FEE_MIN_V0 {
-                // if input big than trans amount
-                break;
-            }
+        op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
+            .unwrap();
+        if input_amount > fra_price + TX_FEE_MIN_V0 {
+            // if input bigger than trans amount
+            break;
         }
     }
 
@@ -592,7 +583,7 @@ pub extern "C" fn get_user_fra_balance(
     .unwrap();
     for (_, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
-        if oar.asset_type != ASSET_TYPE_FRA {
+        if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
             continue;
         }
         input_amount += oar.amount;
