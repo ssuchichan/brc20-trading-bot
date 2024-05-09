@@ -50,48 +50,41 @@ pub extern "C" fn get_tx_str(
     fra_receiver_len: u32,
     to_ptr: *mut u8, // 接收者公钥
     to_len: u32,
-    trans_amount_ptr: *mut u8, // 数量
+    trans_amount_ptr: *mut u8, // brc20数量
     trans_amount_len: u32,
     url_ptr: *mut u8, // 节点RPC
     url_len: u32,
     tick_ptr: *mut u8, // token
     tick_len: u8,
-    fra_price_ptr: *mut u8, // price
+    fra_price_ptr: *mut u8, // FRA price
     fra_price_len: u32,
     brc_type_ptr: *mut u8, // type
     brc_type_len: u32,
 ) -> *const c_char {
     let from_key = unsafe { slice::from_raw_parts(from_sig_ptr, from_sig_len as usize) };
-    let from_key_str = std::str::from_utf8(from_key).unwrap();
-    let from_key_pair = restore_keypair_from_seckey_base64(from_key_str).unwrap();
-
     let to_pub_key = unsafe { slice::from_raw_parts(to_ptr, to_len as usize) };
-    let to_dec = b64dec(to_pub_key).unwrap();
-    let to = XfrPublicKey::zei_from_bytes(to_dec.as_slice()).unwrap();
-
     let fra_receiver_key =
         unsafe { slice::from_raw_parts(fra_receiver_ptr, fra_receiver_len as usize) };
-    let fra_dec = b64dec(fra_receiver_key).unwrap();
-    let fra_receiver = XfrPublicKey::zei_from_bytes(fra_dec.as_slice()).unwrap();
-
     let tick = unsafe { slice::from_raw_parts(tick_ptr, tick_len as usize) };
-
     let trans_amount =
         unsafe { slice::from_raw_parts(trans_amount_ptr, trans_amount_len as usize) };
     let trans_amount_str = std::str::from_utf8(trans_amount).unwrap();
-    let amount = trans_amount_str.parse::<u64>().unwrap();
-
     let url = unsafe { slice::from_raw_parts(url_ptr, url_len as usize) };
     let url_str = std::str::from_utf8(url).unwrap();
-
     let brc_type = unsafe { slice::from_raw_parts(brc_type_ptr, brc_type_len as usize) };
     let brc_type_str = std::str::from_utf8(brc_type).unwrap();
 
     let fra_price = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
-    let fra_amount_str = std::str::from_utf8(fra_price).unwrap();
-    let price = fra_amount_str.parse::<u64>().unwrap();
+    let fra_price_str = std::str::from_utf8(fra_price).unwrap();
+    let fra_price = fra_price_str.parse::<u64>().unwrap();
 
-    let payment = amount * price;
+    let from_key_str = std::str::from_utf8(from_key).unwrap();
+    //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
+    let to_dec = b64dec(to_pub_key).unwrap();
+    let to = XfrPublicKey::zei_from_bytes(to_dec.as_slice()).unwrap();
+    let fra_dec = b64dec(fra_receiver_key).unwrap();
+    let fra_receiver = XfrPublicKey::zei_from_bytes(fra_dec.as_slice()).unwrap();
 
     let asset_record_type = AssetRecordType::from_flags(false, false);
 
@@ -102,11 +95,11 @@ pub extern "C" fn get_tx_str(
     let mut t_amout;
     let utxos = get_owned_utxos_x(
         url_str,
-        wallet::public_key_to_base64(from_key_pair.get_pk_ref()).as_str(),
+        wallet::public_key_to_base64(from.get_pk_ref()).as_str(),
     )
     .unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
-        let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from_key_pair).unwrap();
+        let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
         if oar.asset_type != ASSET_TYPE_FRA {
             continue;
         }
@@ -116,14 +109,14 @@ pub extern "C" fn get_tx_str(
         if t_amout != 0 {
             op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
                 .unwrap();
-            if input_amount > payment + TX_FEE_MIN_V0 {
+            if input_amount > fra_price + TX_FEE_MIN_V0 {
                 // if input bigger than trans amount
                 break;
             }
         }
     }
 
-    if input_amount < payment + TX_FEE_MIN_V0 {
+    if input_amount < fra_price + TX_FEE_MIN_V0 {
         return CString::new("").unwrap().into_raw();
     }
 
@@ -138,10 +131,10 @@ pub extern "C" fn get_tx_str(
         AssetRecordTemplate::with_no_asset_tracing(0, ASSET_TYPE_FRA, asset_record_type, to);
 
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - TX_FEE_MIN_V0 - payment,
+        input_amount - TX_FEE_MIN_V0 - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
-        from_key_pair.get_pk(),
+        from.get_pk(),
     );
 
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
@@ -152,7 +145,7 @@ pub extern "C" fn get_tx_str(
     );
 
     let receive_fra = AssetRecordTemplate::with_no_asset_tracing(
-        payment,
+        fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         fra_receiver,
@@ -164,7 +157,7 @@ pub extern "C" fn get_tx_str(
         .and_then(|b| b.add_output(&template_from, None, None, None, None))
         .and_then(|b| b.add_output(&receive_fra, None, None, None, None))
         .and_then(|b| b.create(TransferType::Standard))
-        .and_then(|b| b.sign(&from_key_pair))
+        .and_then(|b| b.sign(&from))
         .and_then(|b| b.transaction())
         .unwrap();
 
@@ -172,7 +165,7 @@ pub extern "C" fn get_tx_str(
 
     let tx = builder
         .add_operation(trans_build)
-        .sign_to_map(&from_key_pair)
+        .sign_to_map(&from)
         .clone()
         .take_transaction();
 
