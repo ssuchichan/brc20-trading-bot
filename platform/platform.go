@@ -9,6 +9,7 @@ package platform
 #include <stdlib.h>
 
 const char *get_tx_str(
+	char* remainPtr, uint32_t remainLen,
     char *fromSigPtr, uint32_t fromSigLen,
 	char *receiverPtr, uint32_t receiverLen,
     char *toPtr, uint32_t toLen,
@@ -53,9 +54,10 @@ import (
 	"unsafe"
 )
 
-func GetTxBody(fromSig []byte, receiver []byte, to []byte, url []byte, transAmount []byte, tick []byte, fraPrice []byte, brcType []byte) string {
+func GetTxBody(remain []byte, fromSig []byte, receiver []byte, to []byte, url []byte, transAmount []byte, tick []byte, fraPrice []byte, brcType []byte) string {
 	// Call C function
 	result := C.get_tx_str(
+		(*C.char)(unsafe.Pointer(&remain[0])), C.uint32_t(len(remain)),
 		(*C.char)(unsafe.Pointer(&fromSig[0])), C.uint32_t(len(fromSig)),
 		(*C.char)(unsafe.Pointer(&receiver[0])), C.uint32_t(len(receiver)),
 		(*C.char)(unsafe.Pointer(&to[0])), C.uint32_t(len(to)),

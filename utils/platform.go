@@ -23,8 +23,9 @@ func GetOwnedUTXO(pubKey string, endpoint string) (sid uint64, record []byte, er
 	return
 }
 
-func SendTx(from string, receiverPubKey string, toPubKey string, amount string, tick string, fraPrice string, brcType string) (string, error) {
+func SendTx(remain string, from string, receiverPubKey string, toPubKey string, amount string, tick string, fraPrice string, brcType string) (string, error) {
 	txJsonString := platform.GetTxBody(
+		[]byte(remain),
 		[]byte(from),
 		[]byte(receiverPubKey),
 		[]byte(toPubKey),
@@ -34,7 +35,7 @@ func SendTx(from string, receiverPubKey string, toPubKey string, amount string, 
 		[]byte(fraPrice),
 		[]byte(brcType))
 	if len(txJsonString) == 0 {
-		return "", fmt.Errorf("insufficient FRA")
+		return "", fmt.Errorf("tx is empty")
 	}
 	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
 	return sendRequest(resultTx)

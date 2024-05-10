@@ -229,7 +229,7 @@ func mint() error {
 		return err
 	}
 
-	_, err = utils.SendTx(curRobot.Mnemonic, curPubkey, curPubkey, token.Limit, os.Getenv(constant.ROBOT_TICK), "0", constant.BRC20_OP_MINT)
+	_, err = utils.SendTx("0", curRobot.Mnemonic, curPubkey, curPubkey, token.Limit, os.Getenv(constant.ROBOT_TICK), "0", constant.BRC20_OP_MINT)
 	return err
 }
 
@@ -287,13 +287,8 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		logrus.Infof("[List] reach list limit, total listed: %d, list limit: %d", totalList, listLimit)
 		return nil
 	}
-	logrus.Info("[List] current list amount: ", totalList)
+	logrus.Info("[List] current total list: ", totalList)
 	delta := listLimit - totalList
-	tx, err := db.RemoteMaster().Begin()
-	if err != nil {
-		logrus.Error("[List] remoteDB transaction: ", err)
-		return err
-	}
 
 	// 检查当前机器人账户余额
 	b := &model.BRC20TokenBalance{}
@@ -307,7 +302,17 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		logrus.Infof("[List] insufficient balance, account: %s, token: %s, balance: %s", curRobot.Account, ticker, balanceInfo.OverallBalance)
 		return nil
 	}
-	logrus.Infof("[List] current robot: %s, token: %s, balance: %d", curRobot.Account, ticker, brc20Balance)
+	logrus.Infof("[List] current robot: %s, token: %s, brc20 balance: %d", curRobot.Account, ticker, brc20Balance)
+	// 随机产生挂单数量
+	randAmount := 1 + rand.Int63n(delta)
+	var (
+		totalPrice *big.Int
+		listRecord *model.ListRecord
+	)
+	if brc20Balance < randAmount {
+		logrus.Info("brc20 balance < rand amount")
+		return nil
+	}
 
 	// 挂单中心账户
 	center := platform.GeneratePrivateKey()
@@ -317,35 +322,24 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		logrus.Error("[List] get pubKey from address: ", err)
 		return err
 	}
+	logrus.Infof("[List] new center account: %v, pubKey: %v", centerAccount, centerPubKey)
 
-	// 随机产生挂单数量
-	randAmount := 1 + rand.Int63n(delta)
-	var (
-		totalPrice *big.Int
-		listRecord *model.ListRecord
-	)
-	if brc20Balance <= randAmount {
-		// 余额小于随机数量，把余额全部挂单
-		totalPrice = big.NewInt(floorPrice * brc20Balance)
-		listRecord = &model.ListRecord{
-			Ticker:         ticker,
-			User:           curRobot.Account,
-			Price:          totalPrice.String(),
-			Amount:         balanceInfo.OverallBalance,
-			CenterMnemonic: center,
-			State:          constant.Listing,
-		}
-	} else {
-		// 余额大于随机数量，把随机数量挂单
-		totalPrice = big.NewInt(floorPrice * randAmount)
-		listRecord = &model.ListRecord{
-			Ticker:         ticker,
-			User:           curRobot.Account,
-			Price:          totalPrice.String(),
-			Amount:         strconv.Itoa(int(randAmount)),
-			CenterMnemonic: center,
-			State:          constant.Listing,
-		}
+	// 随机数量挂单
+	totalPrice = big.NewInt(floorPrice * randAmount)
+	listRecord = &model.ListRecord{
+		Ticker:         ticker,
+		User:           curRobot.Account,
+		Price:          totalPrice.String(),
+		Amount:         strconv.Itoa(int(randAmount)),
+		CenterMnemonic: center,
+		CenterUser:     centerAccount,
+		State:          constant.ListWaiting,
+	}
+
+	tx, err := db.RemoteMaster().Begin()
+	if err != nil {
+		logrus.Error("[List] remoteDB transaction: ", err)
+		return err
 	}
 
 	lastInsertId, err := listRecord.InsertToDB()
@@ -355,8 +349,9 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	}
 
 	// 3. 转账
-	fraAmount := new(big.Int).Mul(totalPrice, big.NewInt(1_000_000))
-	resp, err := utils.SendTx(curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fraAmount.String(), constant.BRC20_OP_TRANSFER)
+	totalPriceBig := new(big.Int).Mul(totalPrice, big.NewInt(1_000_000))
+	fraAmount := new(big.Int).Add(totalPriceBig, big.NewInt(20_000_000)).String()
+	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fraAmount, constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -413,7 +408,7 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 
 	// 3. 获取当前机器人的fra余额
 	balance := utils.GetFraBalance(curRobot.PrivateKey)
-	logrus.Infof("[Buy] account: %s, balance: %d, recordsLen: %d", curRobot.Account, balance, len(records))
+	logrus.Infof("[Buy] account: %s, FRA balance: %d, lists count: %d", curRobot.Account, balance, len(records))
 
 	// 4. 转账并购买
 	for _, rec := range records {
@@ -431,6 +426,7 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 		if recPriceDec.Value.Cmp(new(big.Int).Mul(big.NewInt(floorPrice*1_000_000), recAmount)) > 0 || (balance-recPriceDec.Value.Uint64()-constant.TX_MIN_FEE) < 0 {
 			// 价格大于地板价
 			// 余额不足
+			logrus.Info("[Buy] price > floor price or insufficient balance")
 			continue
 		}
 		// 给中心化账户打钱
@@ -468,7 +464,7 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 			return err
 		}
 
-		resp, err = utils.SendTx(rec.CenterMnemonic, receiver, toPubKey, rec.Amount, rec.Ticker, recPriceDec.Value.String(), constant.BRC20_OP_TRANSFER)
+		resp, err = utils.SendTx("0", rec.CenterMnemonic, receiver, toPubKey, rec.Amount, rec.Ticker, recPriceDec.Value.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] send tx error: ", err)
