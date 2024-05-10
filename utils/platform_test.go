@@ -14,7 +14,7 @@ func TestGetUTXO(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-	res, err := SendTx("burst sort child success muscle gaze salon swing orphan trim shaft climb",
+	res, err := SendTx("", "burst sort child success muscle gaze salon swing orphan trim shaft climb",
 		"Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=",
 		"Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=",
 		"2",
@@ -34,9 +34,10 @@ func TestSendRobotBatch(t *testing.T) {
 func TestSendToAirDropAccount(t *testing.T) {
 	pubkey, err := GetPubkeyFromAddress("fra1n4urmyxshvgy20arz99us2z6nlk32hherj6mpynwag2z56wunhlsevha2x")
 	assert.Nil(t, err)
-	res, err := Transfer("zoo nerve assault talk depend approve mercy surge bicycle ridge dismiss satoshi boring opera next fat cinnamon valley office actor above spray alcohol giant",
+	fmt.Println(pubkey)
+	res, err := Transfer("7KPz-uvit2VO1WrdRMWzqZVorgIixz7fb3MR5QX3qcs=",
 		pubkey,
-		"20000000")
+		"2000000")
 	assert.Nil(t, err)
 	fmt.Println(res)
 }
@@ -51,4 +52,7 @@ func TestAddressToPubKey(t *testing.T) {
 	pk3, err := GetPubkeyFromAddress("fra1a8xal50pwjhl6z8u7e5rdjzgsj4fhhp8nsur8cc7t8p0fss6euks8msz52") // 6c3f0eF0r_0I_PZoNshIhKqb3CecODPjHlnC9MIazy0=
 	assert.Nil(t, err)
 	fmt.Println(pk3)
+	pk4, err := GetPubkeyFromAddress("fra187p7pexx8z7kr5fza4tup48jkeldytj3yvsrwh8lw6a9fq45tzcs2x6nvw")
+	assert.Nil(t, err)
+	fmt.Println(pk4)
 }

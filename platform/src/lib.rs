@@ -3,17 +3,14 @@ pub mod robot;
 
 extern crate dotenv;
 use anyhow::{anyhow, Result};
-use base64::engine;
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use base64::{engine, engine::general_purpose::URL_SAFE, Engine as _};
 use core::slice;
 use dotenv::dotenv;
 use finutils::txn_builder::TransactionBuilder;
 use finutils::txn_builder::TransferOperationBuilder;
 use globutils::wallet;
-use globutils::wallet::restore_keypair_from_seckey_base64;
-use ledger::data_model::BLACK_HOLE_PUBKEY;
-use ledger::data_model::TX_FEE_MIN_V0;
 use ledger::data_model::{b64dec, TransferType, TxoRef, TxoSID, Utxo, ASSET_TYPE_FRA};
+use ledger::data_model::{BLACK_HOLE_PUBKEY, TX_FEE_MIN_V1};
 use rand::Rng;
 use robot::Robot;
 use serde::{Deserialize, Serialize};
@@ -27,6 +24,8 @@ use zei::serialization::ZeiFromToBytes;
 use zei::xfr::asset_record::{open_blind_asset_record, AssetRecordType};
 use zei::xfr::sig::XfrPublicKey;
 use zei::xfr::structs::{AssetRecordTemplate, OwnerMemo};
+
+const INNER_FEE: u64 = 2 * TX_FEE_MIN_V1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Memo {
@@ -44,23 +43,29 @@ impl Memo {
 
 #[no_mangle]
 pub extern "C" fn get_tx_str(
-    from_sig_ptr: *mut u8, // 发送者私钥
+    from_remain_ptr: *mut u8,
+    from_remain_len: u32,
+    from_sig_ptr: *mut u8,
     from_sig_len: u32,
-    fra_receiver_ptr: *mut u8, // 接收者公钥
+    fra_receiver_ptr: *mut u8,
     fra_receiver_len: u32,
-    to_ptr: *mut u8, // 接收者公钥
+    to_ptr: *mut u8,
     to_len: u32,
-    trans_amount_ptr: *mut u8, // brc20数量
+    trans_amount_ptr: *mut u8,
     trans_amount_len: u32,
-    url_ptr: *mut u8, // 节点RPC
+    url_ptr: *mut u8,
     url_len: u32,
-    tick_ptr: *mut u8, // token
+    tick_ptr: *mut u8,
     tick_len: u8,
-    fra_price_ptr: *mut u8, // FRA price
+    fra_price_ptr: *mut u8,
     fra_price_len: u32,
-    brc_type_ptr: *mut u8, // type
+    brc_type_ptr: *mut u8,
     brc_type_len: u32,
 ) -> *const c_char {
+    let from_remain = unsafe { slice::from_raw_parts(from_remain_ptr, from_remain_len as usize) };
+    let from_remain_str = std::str::from_utf8(from_remain).unwrap();
+    let remain_amount = from_remain_str.parse::<u64>().unwrap();
+
     let from_key = unsafe { slice::from_raw_parts(from_sig_ptr, from_sig_len as usize) };
     let to_pub_key = unsafe { slice::from_raw_parts(to_ptr, to_len as usize) };
     let fra_receiver_key =
@@ -74,13 +79,13 @@ pub extern "C" fn get_tx_str(
     let brc_type = unsafe { slice::from_raw_parts(brc_type_ptr, brc_type_len as usize) };
     let brc_type_str = std::str::from_utf8(brc_type).unwrap();
 
-    let fra_price = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
-    let fra_price_str = std::str::from_utf8(fra_price).unwrap();
-    let fra_price = fra_price_str.parse::<u64>().unwrap();
-
+    let fra_amount = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
+    let fra_amount_str = std::str::from_utf8(fra_amount).unwrap();
+    let num = fra_amount_str.parse::<u64>().unwrap();
+    let fra_price = num;
     let from_key_str = std::str::from_utf8(from_key).unwrap();
     //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
-    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
+    let from = wallet::restore_keypair_from_seckey_base64(from_key_str).unwrap();
     let to_dec = b64dec(to_pub_key).unwrap();
     let to = XfrPublicKey::zei_from_bytes(to_dec.as_slice()).unwrap();
     let fra_dec = b64dec(fra_receiver_key).unwrap();
@@ -107,13 +112,13 @@ pub extern "C" fn get_tx_str(
         input_amount += t_amout;
         op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
             .unwrap();
-        if input_amount > fra_price + TX_FEE_MIN_V0 {
+        if input_amount > fra_price + INNER_FEE {
             // if input bigger than trans amount
             break;
         }
     }
 
-    if input_amount < fra_price + TX_FEE_MIN_V0 {
+    if input_amount < fra_price + INNER_FEE {
         return CString::new("").unwrap().into_raw();
     }
 
@@ -128,14 +133,14 @@ pub extern "C" fn get_tx_str(
         AssetRecordTemplate::with_no_asset_tracing(0, ASSET_TYPE_FRA, asset_record_type, to);
 
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - TX_FEE_MIN_V0 - fra_price,
+        input_amount - INNER_FEE - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         from.get_pk(),
     );
 
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
-        TX_FEE_MIN_V0,
+        INNER_FEE,
         ASSET_TYPE_FRA,
         asset_record_type,
         *BLACK_HOLE_PUBKEY,
@@ -148,15 +153,39 @@ pub extern "C" fn get_tx_str(
         fra_receiver,
     );
     // build output
-    let trans_build = op
-        .add_output(&template_fee, None, None, None, None)
-        .and_then(|b| b.add_output(&template, None, None, None, Some(memo)))
-        .and_then(|b| b.add_output(&template_from, None, None, None, None))
-        .and_then(|b| b.add_output(&receive_fra, None, None, None, None))
-        .and_then(|b| b.create(TransferType::Standard))
-        .and_then(|b| b.sign(&from))
-        .and_then(|b| b.transaction())
-        .unwrap();
+    let trans_build = if remain_amount > 0 {
+        let memo_struct_remain = Memo::new(
+            "brc-20".to_string(),
+            brc_type_str.to_string(),
+            std::str::from_utf8(tick).unwrap().to_string(),
+            from_remain_str.to_string(),
+        );
+        let memo_remain = serde_json::to_string(&memo_struct_remain).unwrap();
+        let template_remain = AssetRecordTemplate::with_no_asset_tracing(
+            0,
+            ASSET_TYPE_FRA,
+            asset_record_type,
+            from.get_pk(),
+        );
+        op.add_output(&template_fee, None, None, None, None)
+            .and_then(|b| b.add_output(&template_remain, None, None, None, Some(memo_remain)))
+            .and_then(|b| b.add_output(&template, None, None, None, Some(memo)))
+            .and_then(|b| b.add_output(&template_from, None, None, None, None))
+            .and_then(|b| b.add_output(&receive_fra, None, None, None, None))
+            .and_then(|b| b.create(TransferType::Standard))
+            .and_then(|b| b.sign(&from))
+            .and_then(|b| b.transaction())
+            .unwrap()
+    } else {
+        op.add_output(&template_fee, None, None, None, None)
+            .and_then(|b| b.add_output(&template, None, None, None, Some(memo)))
+            .and_then(|b| b.add_output(&template_from, None, None, None, None))
+            .and_then(|b| b.add_output(&receive_fra, None, None, None, None))
+            .and_then(|b| b.create(TransferType::Standard))
+            .and_then(|b| b.sign(&from))
+            .and_then(|b| b.transaction())
+            .unwrap()
+    };
 
     let mut builder: TransactionBuilder = get_transaction_builder(url_str).unwrap();
 
@@ -190,14 +219,15 @@ pub extern "C" fn get_transfer_tx_str(
     let url_str = std::str::from_utf8(url).unwrap();
 
     let from_key_str = std::str::from_utf8(from_key).unwrap();
-    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
-
+    //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
+    let from = wallet::restore_keypair_from_seckey_base64(from_key_str).unwrap();
     let fra_dec = b64dec(fra_receiver_key).unwrap();
     let fra_receiver = XfrPublicKey::zei_from_bytes(fra_dec.as_slice()).unwrap();
 
-    let fra_price = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
-    let fra_price_str = std::str::from_utf8(fra_price).unwrap();
-    let fra_price = fra_price_str.parse::<u64>().unwrap();
+    let fra_amount = unsafe { slice::from_raw_parts(fra_price_ptr, fra_price_len as usize) };
+    let fra_amount_str = std::str::from_utf8(fra_amount).unwrap();
+    let num = fra_amount_str.parse::<u64>().unwrap();
+    let fra_price = num;
 
     let asset_record_type = AssetRecordType::from_flags(false, false);
 
@@ -220,19 +250,19 @@ pub extern "C" fn get_transfer_tx_str(
         input_amount += t_amout;
         op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
             .unwrap();
-        if input_amount > fra_price + TX_FEE_MIN_V0 {
+        if input_amount > fra_price + INNER_FEE {
             // if input bigger than trans amount
             break;
         }
     }
 
-    if input_amount < fra_price + TX_FEE_MIN_V0 {
+    if input_amount < fra_price + INNER_FEE {
         return CString::new("").unwrap().into_raw();
     }
 
     // 找零
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - TX_FEE_MIN_V0 - fra_price,
+        input_amount - INNER_FEE - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         from.get_pk(),
@@ -240,7 +270,7 @@ pub extern "C" fn get_transfer_tx_str(
 
     // 手续费
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
-        TX_FEE_MIN_V0,
+        INNER_FEE,
         ASSET_TYPE_FRA,
         asset_record_type,
         *BLACK_HOLE_PUBKEY,
@@ -329,9 +359,9 @@ pub extern "C" fn send_tx(
 
     let json_rpc =
         format!(
-                "{{\"jsonrpc\":\"2.0\",\"id\":\"anything\",\"method\":\"broadcast_tx_sync\",\"params\": {{\"tx\": \"{}\"}}}}",
-                &txn_b64
-            );
+            "{{\"jsonrpc\":\"2.0\",\"id\":\"anything\",\"method\":\"broadcast_tx_sync\",\"params\": {{\"tx\": \"{}\"}}}}",
+            &txn_b64
+        );
 
     attohttpc::post(url_str)
         .header(attohttpc::header::CONTENT_TYPE, "application/json")
@@ -463,15 +493,15 @@ pub extern "C" fn get_send_robot_batch_tx(
             .unwrap_or_else(|_| vec![])
     });
 
-    //     if accounts_result.len() != 200 {
-    //         return CString::new("").unwrap().into_raw();
-    //     }
+    if accounts_result.len() != 200 {
+        return CString::new("").unwrap().into_raw();
+    }
 
     let mut robot_users: Vec<RobotInitAmount> = Vec::with_capacity(accounts_result.len() as usize);
     let mut fra_price_total = 0;
     let mut rng = rand::thread_rng();
     for account in accounts_result {
-        let rand_num = rng.gen_range(1..11);
+        let rand_num = rng.gen_range(80000..100001);
         fra_price_total += rand_num;
         robot_users.push(RobotInitAmount::new(account, rand_num as u64));
     }
@@ -499,19 +529,19 @@ pub extern "C" fn get_send_robot_batch_tx(
         input_amount += t_amout;
         op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
             .unwrap();
-        if input_amount > fra_price + TX_FEE_MIN_V0 {
+        if input_amount > fra_price + INNER_FEE {
             // if input bigger than trans amount
             break;
         }
     }
 
-    if input_amount < fra_price + TX_FEE_MIN_V0 {
+    if input_amount < fra_price + INNER_FEE {
         return CString::new("").unwrap().into_raw();
     }
 
     // 找零
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - TX_FEE_MIN_V0 - fra_price,
+        input_amount - INNER_FEE - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         from.get_pk(),
@@ -519,7 +549,7 @@ pub extern "C" fn get_send_robot_batch_tx(
 
     // 手续费
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
-        TX_FEE_MIN_V0,
+        INNER_FEE,
         ASSET_TYPE_FRA,
         asset_record_type,
         *BLACK_HOLE_PUBKEY,
@@ -572,8 +602,7 @@ pub extern "C" fn get_user_fra_balance(
 
     let from_key_str = std::str::from_utf8(from_key).unwrap();
     //let from = wallet::restore_keypair_from_mnemonic_default(from_key_str).unwrap();
-    let from = restore_keypair_from_seckey_base64(from_key_str).unwrap();
-
+    let from = wallet::restore_keypair_from_seckey_base64(from_key_str).unwrap();
     // build input
     let mut input_amount = 0;
     let utxos = get_owned_utxos_x(
@@ -623,7 +652,7 @@ mod tests {
     fn test_env() {
         dotenv().ok();
         let mut from = std::env::var("CENTEREFROM").unwrap();
-
+        let mut remain = "0".to_string();
         let mut to = String::from("Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=");
         let mut receiver = String::from("Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=");
         let mut url = String::from("https://prod-testnet.prod.findora.org:8668");
@@ -632,6 +661,8 @@ mod tests {
         let mut fra_amount = String::from("2.34");
         let mut brc_type = String::from("transfer");
         let a = get_tx_str(
+            remain.as_mut_ptr(),
+            remain.len() as u32,
             from.as_mut_ptr(),
             from.len() as u32,
             receiver.as_mut_ptr(),
@@ -656,10 +687,11 @@ mod tests {
     #[test]
     fn test_tranfer() {
         dotenv().ok();
-        let mut from = std::env::var("CENTEREFROM").unwrap();
+        //let mut from = std::env::var("CENTEREFROM").unwrap();
+        let mut from = "7KPz-uvit2VO1WrdRMWzqZVorgIixz7fb3MR5QX3qcs=".to_string();
         let mut receiver = String::from("Nb8OH7NRKkarJ7YrE0AmpVgwhDX503WHJKzKJ9mbcpY=");
         let mut url = String::from("https://prod-testnet.prod.findora.org:8668");
-        let mut trans = String::from("2.34");
+        let mut trans = String::from("2000000");
         let a = get_transfer_tx_str(
             from.as_mut_ptr(),
             from.len() as u32,
