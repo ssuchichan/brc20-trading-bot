@@ -114,6 +114,9 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	r := rand.Intn(1441) - 720
+	priceUpdateInterval = priceUpdateInterval + int64(r)
+
 	logrus.Info("Tick: ", token)
 	logrus.Info("Floor prices: ", floorPrices)
 	logrus.Info("Current floor price: ", floorPrices[priceIndex])
@@ -315,8 +318,8 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	}
 
 	// 挂单中心账户
-	center := platform.GeneratePrivateKey()
-	centerAccount := platform.PrivateKey2Bech32([]byte(center))
+	center := platform.GetMnemonic()
+	centerAccount := platform.Mnemonic2Bench32([]byte(center))
 	centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
 	if err != nil {
 		logrus.Error("[List] get pubKey from address: ", err)
@@ -412,7 +415,7 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 
 	// 4. 转账并购买
 	for _, rec := range records {
-		centerAccount := platform.PrivateKey2Bech32([]byte(rec.CenterMnemonic))
+		centerAccount := platform.Mnemonic2Bench32([]byte(rec.CenterMnemonic))
 		centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
 		if err != nil {
 			logrus.Error("[Buy] get pub key from address: ", err)
@@ -423,10 +426,10 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 
 		recPriceDec, _, _ := decimal.NewDecimalFromString(rec.Price) // 乘了1_000_000
 		recAmount, _ := new(big.Int).SetString(rec.Amount, 10)
-		if recPriceDec.Value.Cmp(new(big.Int).Mul(big.NewInt(floorPrice*1_000_000), recAmount)) > 0 || (balance-recPriceDec.Value.Uint64()-constant.TX_MIN_FEE) < 0 {
+		if recPriceDec.Value.Cmp(new(big.Int).Mul(big.NewInt(floorPrice*1_000_000), recAmount)) >= 0 || (balance-recPriceDec.Value.Uint64()-constant.TX_MIN_FEE) < 0 {
 			// 价格大于地板价
 			// 余额不足
-			logrus.Info("[Buy] price > floor price or insufficient balance")
+			logrus.Info("[Buy] price >= floor price or insufficient balance")
 			continue
 		}
 		// 给中心化账户打钱
@@ -464,7 +467,12 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 			return err
 		}
 
-		resp, err = utils.SendTx("0", rec.CenterMnemonic, receiver, toPubKey, rec.Amount, rec.Ticker, recPriceDec.Value.String(), constant.BRC20_OP_TRANSFER)
+		recPrivateKey := platform.Mnemonic2PrivateKey([]byte(rec.CenterMnemonic))
+		if len(recPrivateKey) == 0 {
+			return fmt.Errorf("get private key from recorde mnemonic")
+		}
+
+		resp, err = utils.SendTx("0", recPrivateKey, receiver, toPubKey, rec.Amount, rec.Ticker, recPriceDec.Value.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] send tx error: ", err)

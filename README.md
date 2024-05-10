@@ -8,7 +8,8 @@
 
 ## 创建表
 * Use `table.sql` to create tables.
-* 挂单账户和购买账户分别在表`robot_list`和`robot_buy`中。如果不提前向这两个表插入账户数据，则会在每个表生成100个账户，并向每个账户随机转1-10个币。
+* 挂单账户和购买账户分别在表`robot_list`和`robot_buy`中，提前向这两个表插入账户数据。
+
 ## 环境变量
 ```bash
 # 本机数据库URL  postgres://{user}:{password}@{ip}/{db}
@@ -31,8 +32,8 @@ PLAT_API_PORT=26657
 AIRDROP_MNEMONIC=
 # 铭文代币符号
 ROBOT_TICK=neo
-# 地板价，精确到最小单位（10的6次方）
-FLOOR_PRICES="100000000,150000000,200000000,250000000,300000000"
+# 地板价
+FLOOR_PRICES="1,2,3,4,5,6,7,8"
 # 指定地板价开始的位置
 PRICE_START_INDEX=0
 # 购买间隔，单位秒
@@ -58,4 +59,9 @@ cargo build --release
 ```
 cd brc20-trading-bot
 go build
+```
+
+### 运行
+```
+./brc20-trading-bot
 ```
