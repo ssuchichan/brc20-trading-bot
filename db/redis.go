@@ -17,7 +17,7 @@ func MRedis() *libredis.Client {
 }
 
 func init() {
-	redisUri := os.Getenv(constant.REDISURL)
+	redisUri := os.Getenv(constant.RedisUrl)
 	opts, err := libredis.ParseURL(redisUri)
 	if err != nil {
 		panic(err)

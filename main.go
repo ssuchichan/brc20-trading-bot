@@ -114,7 +114,8 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	r := rand.Intn(1441) - 720
+	d := int(priceUpdateInterval / 5) // *0.2
+	r := rand.Intn(2*d+1) - d
 	priceUpdateInterval = priceUpdateInterval + int64(r)
 
 	logrus.Info("Tick: ", token)
@@ -215,7 +216,7 @@ func mint() error {
 		return err
 	}
 
-	tick := os.Getenv(constant.ROBOT_TICK)
+	tick := os.Getenv(constant.RobotTick)
 
 	token, err := model.NewTokenFromDBByTicker(tick)
 	if err != nil {
@@ -232,7 +233,7 @@ func mint() error {
 		return err
 	}
 
-	_, err = utils.SendTx("0", curRobot.Mnemonic, curPubkey, curPubkey, token.Limit, os.Getenv(constant.ROBOT_TICK), "0", constant.BRC20_OP_MINT)
+	_, err = utils.SendTx("0", curRobot.Mnemonic, curPubkey, curPubkey, token.Limit, os.Getenv(constant.RobotTick), "0", constant.BRC20_OP_MINT)
 	return err
 }
 
@@ -426,10 +427,14 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 
 		recPriceDec, _, _ := decimal.NewDecimalFromString(rec.Price) // 乘了1_000_000
 		recAmount, _ := new(big.Int).SetString(rec.Amount, 10)
-		if recPriceDec.Value.Cmp(new(big.Int).Mul(big.NewInt(floorPrice*1_000_000), recAmount)) >= 0 || (balance-recPriceDec.Value.Uint64()-constant.TX_MIN_FEE) < 0 {
+		if recPriceDec.Value.Cmp(new(big.Int).Mul(big.NewInt(floorPrice*1_000_000), recAmount)) >= 0 {
 			// 价格大于地板价
+			logrus.Info("[Buy] listPrice >= floorPrice")
+			continue
+		}
+		if (balance - recPriceDec.Value.Uint64() - constant.TxMinFee) < 0 {
 			// 余额不足
-			logrus.Info("[Buy] price >= floor price or insufficient balance")
+			logrus.Info("[Buy] insufficient FRA balance")
 			continue
 		}
 		// 给中心化账户打钱
