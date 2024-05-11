@@ -29,7 +29,7 @@ func SendTx(remain string, from string, receiverPubKey string, toPubKey string, 
 		[]byte(from),
 		[]byte(receiverPubKey),
 		[]byte(toPubKey),
-		[]byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))),
+		[]byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatInnerPort))),
 		[]byte(amount),
 		[]byte(tick),
 		[]byte(fraPrice),
@@ -48,7 +48,7 @@ func sendRequest(resultTx string) (string, error) {
 		return "", err
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_API_PORT)), "application/json", bytes.NewBuffer(reqBody))
+	resp, err := http.Post(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatApiPort)), "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		return "", err
 	}
@@ -65,7 +65,7 @@ func sendRequest(resultTx string) (string, error) {
 }
 
 func Transfer(from string, receiverPubKey string, amount string) (string, error) {
-	txJsonString := platform.GetTransferBody([]byte(from), []byte(receiverPubKey), []byte(amount), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
+	txJsonString := platform.GetTransferBody([]byte(from), []byte(receiverPubKey), []byte(amount), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatInnerPort))))
 	if len(txJsonString) == 0 {
 		return "", fmt.Errorf("insufficient FRA")
 	}
@@ -74,11 +74,11 @@ func Transfer(from string, receiverPubKey string, amount string) (string, error)
 }
 
 func SendRobotBatch(from string) (string, error) {
-	txJsonString := platform.GetSendRobotBatchTxBody([]byte(from), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
+	txJsonString := platform.GetSendRobotBatchTxBody([]byte(from), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatInnerPort))))
 	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
 	return sendRequest(resultTx)
 }
 
 func GetFraBalance(from string) uint64 {
-	return platform.GetUserFraBalance([]byte(from), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PLAT_INNER_PORT))))
+	return platform.GetUserFraBalance([]byte(from), []byte(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatInnerPort))))
 }
