@@ -314,7 +314,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		listRecord *model.ListRecord
 	)
 	if brc20Balance < randAmount {
-		logrus.Info("brc20 balance < rand amount")
+		logrus.Infof("brc20 balance(%v) < rand amount(%v)", brc20Balance, randAmount)
 		return nil
 	}
 
@@ -348,6 +348,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 
 	lastInsertId, err := listRecord.InsertToDB()
 	if err != nil {
+		logrus.Error("[List] insert to db: ", err)
 		tx.Rollback()
 		return err
 	}
@@ -357,6 +358,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	fraAmount := new(big.Int).Add(totalPriceBig, big.NewInt(20_000_000)).String()
 	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fraAmount, constant.BRC20_OP_TRANSFER)
 	if err != nil {
+		logrus.Error("[List] send tx: ", err)
 		tx.Rollback()
 		return err
 	}
@@ -367,11 +369,13 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	// 4. 确认转账
 	listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
 	if err = listRecordTemp.ConfirmList(); err != nil {
+		logrus.Error("[List] confirm list: ", err)
 		tx.Rollback()
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
+		logrus.Error("[List] tx commit: ", err)
 		tx.Rollback()
 		return err
 	}
