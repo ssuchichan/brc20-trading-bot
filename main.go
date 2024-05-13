@@ -317,7 +317,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		logrus.Infof("brc20 balance(%v) < rand amount(%v)", brc20Balance, randAmount)
 		return nil
 	}
-
+	logrus.Info("[List] rand amount: ", randAmount)
 	// 挂单中心账户
 	center := platform.GetMnemonic()
 	centerAccount := platform.Mnemonic2Bench32([]byte(center))
