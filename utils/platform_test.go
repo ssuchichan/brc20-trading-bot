@@ -52,7 +52,7 @@ func TestAddressToPubKey(t *testing.T) {
 	pk3, err := GetPubkeyFromAddress("fra1a8xal50pwjhl6z8u7e5rdjzgsj4fhhp8nsur8cc7t8p0fss6euks8msz52") // 6c3f0eF0r_0I_PZoNshIhKqb3CecODPjHlnC9MIazy0=
 	assert.Nil(t, err)
 	fmt.Println(pk3)
-	pk4, err := GetPubkeyFromAddress("fra187p7pexx8z7kr5fza4tup48jkeldytj3yvsrwh8lw6a9fq45tzcs2x6nvw")
+	pk4, err := GetPubkeyFromAddress("fra187p7pexx8z7kr5fza4tup48jkeldytj3yvsrwh8lw6a9fq45tzcs2x6nvw") // nHn6NKAq09kpreLR4QHyg0LuzVeKYGyQFxKcp1AE86Q=
 	assert.Nil(t, err)
 	fmt.Println(pk4)
 }
