@@ -94,6 +94,7 @@ func main() {
 		buyInterval         int64
 		priceUpdateInterval int64
 		listLimit           int64
+		listAmount          int64
 		err                 error
 	)
 	floorPricesStr := os.Getenv("FLOOR_PRICES")
@@ -111,6 +112,7 @@ func main() {
 	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
 	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
 	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
+	listAmount, err = strconv.ParseInt(os.Getenv("LIMIT_AMOUNT"), 10, 64)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -122,7 +124,7 @@ func main() {
 	logrus.Info("Floor prices: ", floorPrices)
 	logrus.Info("Current floor price: ", floorPrices[priceIndex])
 	logrus.Infof("Floor prices updating interval: %ds", priceUpdateInterval)
-	logrus.Info("List limit: ", listLimit)
+	logrus.Infof("List limit: %v, list amount: %v", listLimit, listAmount)
 	logrus.Infof("List interval: %ds, buy interval: %ds", listInterval, buyInterval)
 
 	//mintTicker := time.NewTicker(60 * time.Second)
