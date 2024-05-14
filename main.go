@@ -112,7 +112,7 @@ func main() {
 	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
 	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
 	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
-	listAmount, err = strconv.ParseInt(os.Getenv("LIMIT_AMOUNT"), 10, 64)
+	listAmount, err = strconv.ParseInt(os.Getenv("LIST_AMOUNT"), 10, 64)
 	if err != nil {
 		logrus.Fatal(err)
 	}
