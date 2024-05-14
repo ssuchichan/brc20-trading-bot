@@ -355,9 +355,8 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 	}
 
 	// 3. 转账
-	totalPriceBig := new(big.Int).Mul(totalPrice, big.NewInt(1_000_000))
-	fraAmount := new(big.Int).Add(totalPriceBig, big.NewInt(20_000_000)).String()
-	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fraAmount, constant.BRC20_OP_TRANSFER)
+	fee := big.NewInt(20_000_000) // 20FRA
+	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fee.String(), constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		logrus.Errorf("[List] send tx: %v, robot: %v", err, curRobot.Account)
 		tx.Rollback()
