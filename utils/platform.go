@@ -35,7 +35,7 @@ func SendTx(remain string, from string, receiverPubKey string, toPubKey string, 
 		[]byte(fraPrice),
 		[]byte(brcType))
 	if len(txJsonString) == 0 {
-		return "", fmt.Errorf("tx is empty, insufficient FRA account: %v", from)
+		return "", fmt.Errorf("insufficient FRA")
 	}
 	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
 	return sendRequest(resultTx)
