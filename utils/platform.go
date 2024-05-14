@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,8 +46,8 @@ func sendRequest(resultTx string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	resp, err := http.Post(fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatApiPort)), "application/json", bytes.NewBuffer(reqBody))
+	reqURL := fmt.Sprintf("%s:%s", os.Getenv(constant.ENDPOINT), os.Getenv(constant.PlatApiPort))
+	resp, err := http.Post(reqURL, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +57,7 @@ func sendRequest(resultTx string) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("request error")
+		return "", fmt.Errorf("request error: %v, %v", resp.Status, reqURL)
 	}
 
 	return string(respBody), nil
