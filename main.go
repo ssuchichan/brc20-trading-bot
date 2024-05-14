@@ -94,6 +94,7 @@ func main() {
 		buyInterval         int64
 		priceUpdateInterval int64
 		listLimit           int64
+		listAmount          int64
 		err                 error
 	)
 	floorPricesStr := os.Getenv("FLOOR_PRICES")
@@ -111,6 +112,7 @@ func main() {
 	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
 	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
 	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
+	listAmount, err = strconv.ParseInt(os.Getenv("LIMIT_AMOUNT"), 10, 64)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -122,7 +124,7 @@ func main() {
 	logrus.Info("Floor prices: ", floorPrices)
 	logrus.Info("Current floor price: ", floorPrices[priceIndex])
 	logrus.Infof("Floor prices updating interval: %ds", priceUpdateInterval)
-	logrus.Info("List limit: ", listLimit)
+	logrus.Infof("List limit: %v, list amount: %v", listLimit, listAmount)
 	logrus.Infof("List interval: %ds, buy interval: %ds", listInterval, buyInterval)
 
 	//mintTicker := time.NewTicker(60 * time.Second)
@@ -157,7 +159,7 @@ func main() {
 				continue
 			}
 			curFloorPrice := floorPrices[priceIndex]
-			err = addList(curFloorPrice, listLimit, int64(firstRobotID), int64(robotCount), token)
+			err = addList(curFloorPrice, listLimit, listAmount, int64(firstRobotID), int64(robotCount), token)
 			if err != nil {
 				utils.GetLogger().Errorf("list tick err: %v", err)
 				continue
@@ -260,7 +262,7 @@ func isMintFinished(token *model.Token) (bool, error) {
 	return true, nil
 }
 
-func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount int64, ticker string) error {
+func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID int64, robotCount int64, ticker string) error {
 	// S:L:L:R means Latest List Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
@@ -292,7 +294,6 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		return nil
 	}
 	logrus.Info("[List] current total list: ", totalList)
-	delta := listLimit - totalList
 
 	// 检查当前机器人账户余额
 	b := &model.BRC20TokenBalance{}
@@ -308,7 +309,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	}
 	logrus.Infof("[List] current robot: %s, token: %s, brc20 balance: %d", curRobot.Account, ticker, brc20Balance)
 	// 随机产生挂单数量
-	randAmount := 1 + rand.Int63n(delta)
+	randAmount := 1 + rand.Int63n(listAmount)
 	var (
 		totalPrice *big.Int
 		listRecord *model.ListRecord
