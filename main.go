@@ -159,7 +159,7 @@ func main() {
 				continue
 			}
 			curFloorPrice := floorPrices[priceIndex]
-			err = addList(curFloorPrice, listLimit, int64(firstRobotID), int64(robotCount), token)
+			err = addList(curFloorPrice, listLimit, listAmount, int64(firstRobotID), int64(robotCount), token)
 			if err != nil {
 				utils.GetLogger().Errorf("list tick err: %v", err)
 				continue
@@ -262,7 +262,7 @@ func isMintFinished(token *model.Token) (bool, error) {
 	return true, nil
 }
 
-func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount int64, ticker string) error {
+func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID int64, robotCount int64, ticker string) error {
 	// S:L:L:R means Latest List Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
@@ -294,7 +294,6 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 		return nil
 	}
 	logrus.Info("[List] current total list: ", totalList)
-	delta := listLimit - totalList
 
 	// 检查当前机器人账户余额
 	b := &model.BRC20TokenBalance{}
@@ -310,7 +309,7 @@ func addList(floorPrice int64, listLimit int64, firstRobotID int64, robotCount i
 	}
 	logrus.Infof("[List] current robot: %s, token: %s, brc20 balance: %d", curRobot.Account, ticker, brc20Balance)
 	// 随机产生挂单数量
-	randAmount := 1 + rand.Int63n(delta)
+	randAmount := 1 + rand.Int63n(listAmount)
 	var (
 		totalPrice *big.Int
 		listRecord *model.ListRecord
