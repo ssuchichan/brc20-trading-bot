@@ -88,7 +88,7 @@ func init() {
 
 func main() {
 	var (
-		floorPrices         []int64
+		floorPrices         []string
 		priceIndex          int64
 		listInterval        int64
 		buyInterval         int64
@@ -100,11 +100,7 @@ func main() {
 	floorPricesStr := os.Getenv("FLOOR_PRICES")
 	prices := strings.Split(floorPricesStr, ",")
 	for i := 0; i < len(prices); i++ {
-		p, err := strconv.ParseInt(prices[i], 10, 64)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		floorPrices = append(floorPrices, p)
+		floorPrices = append(floorPrices, prices[i])
 	}
 	token := os.Getenv("ROBOT_TICK")
 	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
@@ -262,7 +258,13 @@ func isMintFinished(token *model.Token) (bool, error) {
 	return true, nil
 }
 
-func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID int64, robotCount int64, ticker string) error {
+func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID int64, robotCount int64, ticker string) error {
+	// parse floor price
+	decFloorPrice, _, err := decimal.NewDecimalFromString(floorPrice)
+	if err != nil {
+		return err
+	}
+
 	// S:L:L:R means Latest List Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
@@ -271,8 +273,8 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 	}
 	logrus.Info("[List] the listRobot id: ", latestRobotId)
 	// 1. 获取当前robot
-	r := &model.Robot{}
-	curRobot, err := r.GetRobotListById(uint64(latestRobotId))
+	rb := &model.Robot{}
+	curRobot, err := rb.GetRobotListById(uint64(latestRobotId))
 	if err != nil {
 		logrus.Error("[List] get listRobot id: ", err)
 		return err
@@ -284,7 +286,7 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 
 	// 当前list总量
 	rec := &model.ListRecord{}
-	totalList, err := rec.SumListAmount(ticker)
+	totalList, err := rec.SumListAmount(ticker, 1_000_000*1.2*decFloorPrice.Float64())
 	if err != nil {
 		logrus.Error("[List] get list sum: ", err)
 		return err
@@ -294,6 +296,12 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 		return nil
 	}
 	logrus.Info("[List] current total list: ", totalList)
+
+	// 单价上下浮动20%
+	r := rand.Intn(41) - 20 // [-20, 20]随机数
+	rate := float64(100+r) / 100.0
+	unitPrice := decFloorPrice.Float64() * rate // 实际单价
+	logrus.Infof("[List] expect floorPirce: %v, real unitPrice: %v, rate: %v", floorPrice, unitPrice, rate)
 
 	// 检查当前机器人账户余额
 	b := &model.BRC20TokenBalance{}
@@ -328,9 +336,13 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 		return err
 	}
 	logrus.Infof("[List] new center account: %v, pubKey: %v", centerAccount, centerPubKey)
-
-	// 随机数量挂单
-	totalPrice = big.NewInt(floorPrice * randAmount)
+	// 单价
+	decUnitPrice, _, err := decimal.NewDecimalFromString(big.NewFloat(unitPrice).String()) // 乘1_000_000后的结果
+	if err != nil {
+		return err
+	}
+	// 订单总价
+	totalPrice = new(big.Int).Mul(decUnitPrice.Value, big.NewInt(randAmount))
 	listRecord = &model.ListRecord{
 		Ticker:         ticker,
 		User:           curRobot.Account,
@@ -355,7 +367,7 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 	}
 
 	// 3. 转账
-	fee := big.NewInt(20_000_000) // 20FRA
+	fee := big.NewInt(21_000_000) // 21FRA
 	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fee.String(), constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		logrus.Errorf("[List] send tx: %v, robot: %v", err, curRobot.Account)
@@ -381,13 +393,18 @@ func addList(floorPrice int64, listLimit int64, listAmount int64, firstRobotID i
 	}
 
 	logrus.Infof("[List] add list ok, seller: %v, tx: %v, listId: %v, token: %v, amount: %v, unitPrice: %v, totalPrice: %v",
-		curRobot.Account, result.Result.Hash, lastInsertId, ticker, listRecord.Amount, floorPrice, totalPrice.String())
+		curRobot.Account, result.Result.Hash, lastInsertId, ticker, listRecord.Amount, unitPrice, totalPrice.String())
 
 	return nil
 }
 
-func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) error {
+func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string) error {
 	logrus.Info("[Buy] current floor price ", floorPrice)
+	decFloorPrice, _, err := decimal.NewDecimalFromString(floorPrice)
+	if err != nil {
+		return err
+	}
+
 	// S:L:L:R means Latest Buy Robot
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:B:R").Int64()
 	if err != nil {
@@ -428,21 +445,24 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 		}
 
 		logrus.Infof("[Buy] listId %v, amount: %v, totalPrice: %v", rec.Id, rec.Amount, rec.Price)
-
-		recPriceDec, _, _ := decimal.NewDecimalFromString(rec.Price) // 乘了1_000_000
+		// 订单总价
+		recPrice, _ := new(big.Int).SetString(rec.Price, 10)
+		// 订单token数
 		recAmount, _ := new(big.Int).SetString(rec.Amount, 10)
-		if recPriceDec.Value.Cmp(new(big.Int).Mul(big.NewInt(floorPrice*1_000_000), recAmount)) >= 0 {
+		// 理论总价
+		expectPrice := new(big.Int).Mul(decFloorPrice.Value, recAmount)
+		if recPrice.Cmp(expectPrice) >= 0 {
 			// 价格大于地板价
-			logrus.Info("[Buy] listPrice >= floorPrice")
+			logrus.Infof("[Buy] listPrice(%v) >= floorPrice(%v)", recPrice.String(), expectPrice.String())
 			continue
 		}
-		if (balance - recPriceDec.Value.Uint64() - constant.TxMinFee) < 0 {
+		if (balance - recPrice.Uint64() - constant.TxMinFee) < 0 {
 			// 余额不足
 			logrus.Info("[Buy] insufficient FRA balance")
 			continue
 		}
 		// 给中心化账户打钱
-		resp, err := utils.Transfer(curRobot.PrivateKey, centerPubKey, recPriceDec.Value.String())
+		resp, err := utils.Transfer(curRobot.PrivateKey, centerPubKey, recPrice.String())
 		if err != nil {
 			logrus.Error("[Buy] get transfer error: ", err)
 			return err
@@ -481,9 +501,10 @@ func buy(floorPrice int64, firstRobotID int64, robotCount int64, ticker string) 
 			return fmt.Errorf("get private key from recorde mnemonic")
 		}
 
-		resp, err = utils.SendTx("0", recPrivateKey, receiver, toPubKey, rec.Amount, rec.Ticker, recPriceDec.Value.String(), constant.BRC20_OP_TRANSFER)
+		time.Sleep(time.Second * 15) // 为了确保交易已上链
+
+		resp, err = utils.SendTx("0", recPrivateKey, receiver, toPubKey, rec.Amount, rec.Ticker, recPrice.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
-			tx.Rollback()
 			logrus.Error("[Buy] send tx error: ", err)
 			return err
 		}

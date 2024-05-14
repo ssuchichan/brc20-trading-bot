@@ -24,13 +24,14 @@ type ListRecord struct {
 	CenterUser     string `json:"center_user" db:"center_user"`
 }
 
-func (l *ListRecord) SumListAmount(tick string) (int64, error) {
+func (l *ListRecord) SumListAmount(tick string, price float64) (int64, error) {
 	var (
 		total    int
 		totalStr string
 		err      error
 	)
-	err = db.RemoteMaster().Get(&totalStr, "SELECT sum(amount) FROM list_record WHERE state=$1 AND ticker=$2", constant.Listing, tick)
+	err = db.RemoteMaster().Get(&totalStr,
+		"SELECT sum(amount) FROM list_record WHERE amount > 0 AND state=$1 AND ticker=$2 AND (price/amount < $3)", constant.Listing, tick, price)
 	if totalStr == "" {
 		return 0, nil
 	}
