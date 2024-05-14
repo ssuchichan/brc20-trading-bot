@@ -319,7 +319,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	// 随机产生挂单数量
 	randAmount := 1 + rand.Int63n(listAmount)
 	var (
-		totalPrice *big.Int
+		totalPrice *big.Float
 		listRecord *model.ListRecord
 	)
 	if brc20Balance < randAmount {
@@ -336,13 +336,8 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 		return err
 	}
 	logrus.Infof("[List] new center account: %v, pubKey: %v", centerAccount, centerPubKey)
-	// 单价
-	decUnitPrice, _, err := decimal.NewDecimalFromString(big.NewFloat(unitPrice).String()) // 乘1_000_000后的结果
-	if err != nil {
-		return err
-	}
 	// 订单总价
-	totalPrice = new(big.Int).Mul(decUnitPrice.Value, big.NewInt(randAmount))
+	totalPrice = big.NewFloat(unitPrice * float64(randAmount))
 	listRecord = &model.ListRecord{
 		Ticker:         ticker,
 		User:           curRobot.Account,
@@ -501,7 +496,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 			return fmt.Errorf("get private key from recorde mnemonic")
 		}
 
-		time.Sleep(time.Second * 15) // 为了确保交易已上链
+		time.Sleep(time.Second * 20) // 等20秒,为了确保交易已上链
 
 		resp, err = utils.SendTx("0", recPrivateKey, receiver, toPubKey, rec.Amount, rec.Ticker, recPrice.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
