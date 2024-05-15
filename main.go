@@ -142,7 +142,7 @@ func main() {
 	if robotListCount == 0 {
 		logrus.Fatal("The listRobot count is 0")
 	}
-
+	logrus.Infof("The first list robot id: %v, list robot count: %v", firstListRobotID, robotListCount)
 	rBuy := &model.Robot{}
 	firstBuyRobotID, err := rBuy.GetFirstRobotBuy()
 	if err != nil {
@@ -152,7 +152,7 @@ func main() {
 	if robotBuyCount == 0 {
 		logrus.Fatal("The buyRobot count is 0")
 	}
-
+	logrus.Infof("The first buy robot id: %v, list robot count: %v", firstBuyRobotID, robotBuyCount)
 	for {
 		select {
 		//case <-mintTicker.C:
