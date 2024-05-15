@@ -133,6 +133,25 @@ func main() {
 		buyTicker.Stop()
 		priceTicker.Stop()
 	}()
+	rList := &model.Robot{}
+	firstListRobotID, err := rList.GetFirstRobotList()
+	if err != nil {
+		logrus.Fatal("Get the first listRobotId: ", err)
+	}
+	robotListCount, _ := rList.GetListRobotCount()
+	if robotListCount == 0 {
+		logrus.Fatal("The listRobot count is 0")
+	}
+
+	rBuy := &model.Robot{}
+	firstBuyRobotID, err := rBuy.GetFirstRobotBuy()
+	if err != nil {
+		logrus.Fatal("Get the first listRobotId: ", err)
+	}
+	robotBuyCount, _ := rBuy.GetBuyRobotCount()
+	if robotBuyCount == 0 {
+		logrus.Fatal("The buyRobot count is 0")
+	}
 
 	for {
 		select {
@@ -143,38 +162,15 @@ func main() {
 		//		continue
 		//	}
 		case <-addListTicker.C:
-			r := &model.Robot{}
-			firstRobotID, err := r.GetFirstRobotList()
-			if err != nil {
-				logrus.Error("Get the first listRobotId: ", err)
-				continue
-			}
-			robotCount, _ := r.GetListRobotCount()
-			if robotCount == 0 {
-				logrus.Error("The listRobot count is 0")
-				continue
-			}
 			curFloorPrice := floorPrices[priceIndex]
-			err = addList(curFloorPrice, listLimit, listAmount, int64(firstRobotID), int64(robotCount), token)
+			err = addList(curFloorPrice, listLimit, listAmount, int64(firstListRobotID), int64(robotListCount), token)
 			if err != nil {
 				utils.GetLogger().Errorf("list tick err: %v", err)
 				continue
 			}
 		case <-buyTicker.C:
-			r := &model.Robot{}
-			firstRobotID, err := r.GetFirstRobotBuy()
-			if err != nil {
-				logrus.Error("Get the first listRobotId: ", err)
-				continue
-			}
-			robotCount, _ := r.GetBuyRobotCount()
-			if robotCount == 0 {
-				logrus.Error("The buyRobot count is 0")
-				continue
-			}
-
 			curFloorPrice := floorPrices[priceIndex]
-			err = buy(curFloorPrice, int64(firstRobotID), int64(robotCount), token)
+			err = buy(curFloorPrice, int64(firstBuyRobotID), int64(robotBuyCount), token)
 			if err != nil {
 				utils.GetLogger().Errorf("buy tick err: %v", err)
 				continue
