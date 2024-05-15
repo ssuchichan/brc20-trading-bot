@@ -360,7 +360,6 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fee.String(), constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		logrus.Errorf("[List] send tx: %v, robot: %v", err, curRobot.Account)
-		tx.Rollback()
 		return err
 	}
 
