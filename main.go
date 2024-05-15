@@ -275,7 +275,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	}
 
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%robotCount+firstRobotID, time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:L:R", (latestRobotId+1)%robotCount+firstRobotID-1, time.Duration(0))
 	}()
 
 	// 当前list总量
@@ -410,7 +410,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 	}
 
 	defer func() {
-		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%robotCount+firstRobotID, time.Duration(0))
+		db.MRedis().Set(context.Background(), "S:L:B:R", (latestRobotId+1)%robotCount+firstRobotID-1, time.Duration(0))
 	}()
 
 	// 2. 获取机器人订单
