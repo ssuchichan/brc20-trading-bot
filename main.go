@@ -399,7 +399,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 		logrus.Error("[Buy] redis: ", err)
 		return err
 	}
-	logrus.Info("[List] current buy robot id: ", latestRobotId)
+	logrus.Info("[Buy] current buy robot id: ", latestRobotId)
 
 	// 1. 获取当前robot
 	r := &model.Robot{}
