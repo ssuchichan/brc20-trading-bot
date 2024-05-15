@@ -163,23 +163,23 @@ func main() {
 			curFloorPrice := floorPrices[priceIndex]
 			err = addList(curFloorPrice, listLimit, listAmount, int64(firstListRobotID), int64(robotListCount), token)
 			if err != nil {
-				utils.GetLogger().Errorf("list tick err: %v", err)
+				utils.GetLogger().Errorf("[List] list err: %v", err)
 				continue
 			}
 		case <-buyTicker.C:
 			curFloorPrice := floorPrices[priceIndex]
 			err = buy(curFloorPrice, int64(firstBuyRobotID), int64(robotBuyCount), token)
 			if err != nil {
-				utils.GetLogger().Errorf("buy tick err: %v", err)
+				utils.GetLogger().Errorf("[Buy] buy err: %v", err)
 				continue
 			}
 		case <-priceTicker.C:
 			if priceIndex+1 == int64(len(prices)) {
-				logrus.Info("Reached the last floor price, exit.")
+				logrus.Info("[FloorPrice] Reached the last floor price, exit.")
 				return
 			}
 			priceIndex += 1
-			logrus.Info("Update floor price to: ", floorPrices[priceIndex])
+			logrus.Info("[FloorPrice] update floor price to: ", floorPrices[priceIndex])
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}
