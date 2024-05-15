@@ -467,7 +467,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 		// 给中心化账户打钱
 		resp, err := utils.Transfer(curRobot.PrivateKey, centerPubKey, decRecPrice.String())
 		if err != nil {
-			logrus.Error("[Buy] get transfer error: ", err)
+			logrus.Error("[Buy] transfer: %v, account: %v", err, curRobot.Account)
 			return err
 		}
 		var result1 RpcResult
