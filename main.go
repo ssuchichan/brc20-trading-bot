@@ -75,8 +75,6 @@ func init() {
 	if err != nil {
 		logrus.Fatal("Get first buyRobot ID: ", err)
 	}
-	logrus.Infof("The first listRobotId: %d, the first buyRobotId: %d", firstRobotListID, firstRobotBuyID)
-
 	// S:L:M:R means Latest Mint Robot
 	//db.MRedis().SetNX(context.Background(), "S:L:M:R", 1, time.Duration(0))
 	// Least List Robot
