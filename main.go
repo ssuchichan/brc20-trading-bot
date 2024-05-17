@@ -288,10 +288,9 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	}
 
 	defer func() {
-		nextOffset := (latestRobotId + 1) % robotCount
-		nextID := nextOffset + firstRobotID - 1
-		if nextOffset == 0 {
-			nextID += 1
+		nextID := latestRobotId + 1
+		if nextID > (firstRobotID + robotCount - 1) {
+			nextID = firstRobotID
 		}
 		db.MRedis().Set(context.Background(), "S:L:L:R", nextID, time.Duration(0))
 	}()
@@ -314,7 +313,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	r := rand.Intn(41) - 20 // [-20, 20]随机数
 	rate := float64(100+r) / 100.0
 	unitPrice := fp * rate // 实际单价
-	logrus.Infof("[List] floorPirce: %v, unitPrice: %v, rate: %v", floorPrice, fmt.Sprintf("%.2f", fp*rate), rate)
+	logrus.Infof("[List] floorPirce: %v, unitPrice: %v, rate: %v", floorPrice, fmt.Sprintf("%.2f", unitPrice), rate)
 
 	// 检查当前机器人账户余额
 	b := &model.BRC20TokenBalance{}
@@ -400,7 +399,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	}
 
 	logrus.Infof("[List] add list ok, seller: %v, tx: %v, listId: %v, token: %v, amount: %v, unitPrice: %v, totalPrice: %v",
-		curRobot.Account, result.Result.Hash, lastInsertId, ticker, listRecord.Amount, unitPrice, totalPrice)
+		curRobot.Account, result.Result.Hash, lastInsertId, ticker, listRecord.Amount, fmt.Sprintf("%.2f", unitPrice), totalPrice)
 
 	return nil
 }
@@ -432,10 +431,9 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 	}
 
 	defer func() {
-		nextOffset := (latestRobotId + 1) % robotCount
-		nextID := nextOffset + firstRobotID - 1
-		if nextOffset == 0 {
-			nextID += 1
+		nextID := latestRobotId + 1
+		if nextID > (firstRobotID + robotCount - 1) {
+			nextID = firstRobotID
 		}
 		db.MRedis().Set(context.Background(), "S:L:B:R", nextID, time.Duration(0))
 	}()
