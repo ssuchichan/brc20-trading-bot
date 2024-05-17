@@ -265,6 +265,9 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 		logrus.Error("[List] redis: ", err)
 		return err
 	}
+	if latestRobotId == 0 {
+		return fmt.Errorf("[List] invalid robot id: 0")
+	}
 	logrus.Info("[List] current list robot id: ", latestRobotId)
 	// 1. 获取当前robot
 	rb := &model.Robot{}
@@ -398,6 +401,9 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 	if err != nil {
 		logrus.Error("[Buy] redis: ", err)
 		return err
+	}
+	if latestRobotId == 0 {
+		return fmt.Errorf("[Buy] invalid robot id: 0")
 	}
 	logrus.Info("[Buy] current buy robot id: ", latestRobotId)
 
