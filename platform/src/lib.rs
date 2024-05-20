@@ -98,11 +98,15 @@ pub extern "C" fn get_tx_str(
     // build input
     let mut input_amount = 0;
     let mut t_amout;
-    let utxos = get_owned_utxos_x(
+    let utxos_res = get_owned_utxos(
         url_str,
         wallet::public_key_to_base64(from.get_pk_ref()).as_str(),
-    )
-    .unwrap();
+    );
+    if let Err(e) = utxos_res {
+        return CString::new(format!("error: {:?}", e)).unwrap().into_raw();
+    }
+    let utxos = utxos_res.unwrap();
+
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
         if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
@@ -236,7 +240,7 @@ pub extern "C" fn get_transfer_tx_str(
     // build input
     let mut input_amount = 0;
     let mut t_amout;
-    let utxos = get_owned_utxos_x(
+    let utxos = get_owned_utxos(
         url_str,
         wallet::public_key_to_base64(from.get_pk_ref()).as_str(),
     )
@@ -327,10 +331,7 @@ fn get_transaction_builder(url: &str) -> Result<TransactionBuilder> {
         .map(|resp| TransactionBuilder::from_seq_id(resp.1))
 }
 
-fn get_owned_utxos_x(
-    url: &str,
-    pubkey: &str,
-) -> Result<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>> {
+fn get_owned_utxos(url: &str, pubkey: &str) -> Result<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>> {
     let url = format!("{}/owned_utxos/{}", url, pubkey);
 
     attohttpc::get(url)
@@ -515,7 +516,7 @@ pub extern "C" fn get_send_robot_batch_tx(
     // build input
     let mut input_amount = 0;
     let mut t_amout;
-    let utxos = get_owned_utxos_x(
+    let utxos = get_owned_utxos(
         url_str,
         wallet::public_key_to_base64(from.get_pk_ref()).as_str(),
     )
@@ -605,7 +606,7 @@ pub extern "C" fn get_user_fra_balance(
     let from = wallet::restore_keypair_from_seckey_base64(from_key_str).unwrap();
     // build input
     let mut input_amount = 0;
-    let utxos = get_owned_utxos_x(
+    let utxos = get_owned_utxos(
         url_str,
         wallet::public_key_to_base64(from.get_pk_ref()).as_str(),
     )
@@ -624,8 +625,8 @@ pub extern "C" fn get_user_fra_balance(
 #[cfg(test)]
 mod tests {
     use crate::{
-        generate_mnemonic_default, get_send_robot_batch_tx, get_transfer_tx_str, get_tx_str,
-        get_user_fra_balance, robot::Robot, send_tx, Memo,
+        generate_mnemonic_default, get_owned_utxos, get_send_robot_batch_tx, get_transfer_tx_str,
+        get_tx_str, get_user_fra_balance, robot::Robot, send_tx, Memo,
     };
     extern crate dotenv;
     use dotenv::dotenv;
@@ -785,5 +786,13 @@ mod tests {
             url.len() as u32,
         );
         println!("{:?}", a)
+    }
+
+    #[test]
+    fn test_get_owned_utxos() {
+        dotenv().ok();
+        let pub_key = "6c3f0eF0r_0I_PZoNshIhKqb3CecODPjHlnC9MIazy0=";
+        let url = "https://mainnet.fra.tech:8668";
+        get_owned_utxos(url, pub_key).unwrap();
     }
 }

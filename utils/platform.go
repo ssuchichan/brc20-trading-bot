@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func GetOwnedUTXO(pubKey string, endpoint string) (sid uint64, record []byte, err error) {
@@ -33,6 +34,9 @@ func SendTx(remain string, from string, receiverPubKey string, toPubKey string, 
 		[]byte(tick),
 		[]byte(fraPrice),
 		[]byte(brcType))
+	if strings.Contains(txJsonString, "error") {
+		return "", fmt.Errorf(txJsonString)
+	}
 	if len(txJsonString) == 0 {
 		return "", fmt.Errorf("insufficient FRA")
 	}
