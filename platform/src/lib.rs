@@ -105,11 +105,7 @@ pub extern "C" fn get_tx_str(
     if let Err(e) = utxos_res {
         return CString::new(format!("error: {:?}", e)).unwrap().into_raw();
     }
-    let utxos_opt = utxos_res.unwrap();
-    if utxos_opt.is_none() {
-        return CString::new("").unwrap().into_raw();
-    }
-    let utxos = utxos_opt.unwrap();
+    let utxos = utxos_res.unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
         if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
@@ -250,11 +246,7 @@ pub extern "C" fn get_transfer_tx_str(
     if let Err(e) = utxos_res {
         return CString::new(format!("error: {:?}", e)).unwrap().into_raw();
     }
-    let utxos_opt = utxos_res.unwrap();
-    if utxos_opt.is_none() {
-        return CString::new("").unwrap().into_raw();
-    }
-    let utxos = utxos_opt.unwrap();
+    let utxos = utxos_res.unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
         if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
@@ -344,7 +336,7 @@ fn get_transaction_builder(url: &str) -> Result<TransactionBuilder> {
 fn get_owned_utxos(
     url: &str,
     pubkey: &str,
-) -> Result<Option<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>>> {
+) -> Result<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>> {
     let url = format!("{}/owned_utxos/{}", url, pubkey);
 
     attohttpc::get(url)
@@ -352,7 +344,7 @@ fn get_owned_utxos(
         .and_then(|resp| resp.bytes())
         .map_err(|e| anyhow! {"{:?}", e})
         .and_then(|b| {
-            serde_json::from_slice::<Option<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>>>(&b)
+            serde_json::from_slice::<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>>(&b)
                 .map_err(|e| anyhow!("{:?}", e))
         })
 }
@@ -536,11 +528,7 @@ pub extern "C" fn get_send_robot_batch_tx(
     if let Err(e) = utxos_res {
         return CString::new(format!("error: {:?}", e)).unwrap().into_raw();
     }
-    let utxos_opt = utxos_res.unwrap();
-    if utxos_opt.is_none() {
-        return CString::new("").unwrap().into_raw();
-    }
-    let utxos = utxos_opt.unwrap();
+    let utxos = utxos_res.unwrap();
     for (sid, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
         if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
@@ -633,11 +621,7 @@ pub extern "C" fn get_user_fra_balance(
     if utxos_res.is_err() {
         return input_amount;
     }
-    let utxos_opt = utxos_res.unwrap();
-    if utxos_opt.is_none() {
-        return input_amount;
-    }
-    let utxos = utxos_opt.unwrap();
+    let utxos = utxos_res.unwrap();
     for (_, (utxo, owner_memo)) in utxos.into_iter() {
         let oar = open_blind_asset_record(&utxo.0.record, &owner_memo, &from).unwrap();
         if oar.asset_type != ASSET_TYPE_FRA || oar.amount == 0 {
