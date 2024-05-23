@@ -54,6 +54,8 @@ func initRobot() error {
 	return nil
 }
 
+const redisNil = "redis: nil"
+
 func init() {
 	var (
 		firstRobotListID uint64
@@ -78,7 +80,11 @@ func init() {
 
 	latestRobotId, err := db.MRedis().Get(context.Background(), "S:L:L:R").Int64()
 	if err != nil {
-		logrus.Fatal("S:L:L:R: ", err)
+		if err.Error() == redisNil {
+			db.MRedis().Set(context.Background(), "S:L:L:R", firstRobotListID, time.Duration(0))
+		} else {
+			logrus.Fatal("S:L:L:R: ", err)
+		}
 	}
 	if latestRobotId == 0 {
 		db.MRedis().Set(context.Background(), "S:L:L:R", firstRobotListID, time.Duration(0))
@@ -86,7 +92,11 @@ func init() {
 
 	latestRobotId, err = db.MRedis().Get(context.Background(), "S:L:B:R").Int64()
 	if err != nil {
-		logrus.Fatal("S:L:B:R: ", err)
+		if err.Error() == redisNil {
+			db.MRedis().Set(context.Background(), "S:L:B:R", firstRobotBuyID, time.Duration(0))
+		} else {
+			logrus.Fatal("S:L:B:R: ", err)
+		}
 	}
 	if latestRobotId == 0 {
 		db.MRedis().Set(context.Background(), "S:L:B:R", firstRobotBuyID, time.Duration(0))
@@ -117,14 +127,32 @@ func main() {
 		floorPrices = append(floorPrices, prices[i])
 	}
 	token := os.Getenv("ROBOT_TICK")
+	if err != nil {
+		logrus.Fatal("ROBOT_TICK: ", err)
+	}
 	listLimit, err = strconv.ParseInt(os.Getenv("LIST_LIMIT"), 10, 64)
+	if err != nil {
+		logrus.Fatal("LIST_LIMIT: ", err)
+	}
 	priceIndex, err = strconv.ParseInt(os.Getenv("PRICE_START_INDEX"), 10, 64)
+	if err != nil {
+		logrus.Fatal("PRICE_START_INDEX: ", err)
+	}
 	listInterval, err = strconv.ParseInt(os.Getenv("LIST_INTERVAL"), 10, 64)
+	if err != nil {
+		logrus.Fatal("LIST_INTERVAL: ", err)
+	}
 	buyInterval, err = strconv.ParseInt(os.Getenv("BUY_INTERVAL"), 10, 64)
+	if err != nil {
+		logrus.Fatal("BUY_INTERVAL: ", err)
+	}
 	priceUpdateInterval, err = strconv.ParseInt(os.Getenv("FLOOR_PRICE_UPDATE_INTERVAL"), 10, 64)
+	if err != nil {
+		logrus.Fatal("FLOOR_PRICE_UPDATE_INTERVAL: ", err)
+	}
 	listAmount, err = strconv.ParseInt(os.Getenv("LIST_AMOUNT"), 10, 64)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Fatal("LIST_AMOUNT: ", err)
 	}
 	d := int(priceUpdateInterval / 5) // *0.2
 	r := rand.Intn(2*d+1) - d
@@ -177,18 +205,20 @@ func main() {
 		//	}
 		case <-addListTicker.C:
 			curFloorPrice := floorPrices[priceIndex]
-			err = addList(curFloorPrice, listLimit, listAmount, int64(firstListRobotID), int64(robotListCount), token)
-			if err != nil {
-				utils.GetLogger().Errorf("[List] list err: %v", err)
-				continue
-			}
+			go func() {
+				err = addList(curFloorPrice, listLimit, listAmount, int64(firstListRobotID), int64(robotListCount), token)
+				if err != nil {
+					utils.GetLogger().Errorf("[List] list err: %v", err)
+				}
+			}()
 		case <-buyTicker.C:
 			curFloorPrice := floorPrices[priceIndex]
-			err = buy(curFloorPrice, int64(firstBuyRobotID), int64(robotBuyCount), token)
-			if err != nil {
-				utils.GetLogger().Errorf("[Buy] buy err: %v", err)
-				continue
-			}
+			go func() {
+				err = buy(curFloorPrice, int64(firstBuyRobotID), int64(robotBuyCount), token)
+				if err != nil {
+					utils.GetLogger().Errorf("[Buy] buy err: %v", err)
+				}
+			}()
 		case <-priceTicker.C:
 			if priceIndex+1 == int64(len(prices)) {
 				logrus.Info("[FloorPrice] Reached the last floor price, exit.")
