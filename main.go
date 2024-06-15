@@ -414,7 +414,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	}
 
 	var result RpcResult
-	if err := json.Unmarshal([]byte(resp), &result); err != nil {
+	if err = json.Unmarshal([]byte(resp), &result); err != nil {
 		tx.Rollback()
 		logrus.Errorf("[List] unmarshal: %v", err)
 		return err
@@ -582,7 +582,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 
 		logrus.Infof("[Buy] send brc20 hash: %s ", result2.Result.Hash)
 
-		if err := tx.Commit(); err != nil {
+		if err = tx.Commit(); err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] commit error: ", err)
 			return err
