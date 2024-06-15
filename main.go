@@ -392,14 +392,15 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 
 	tx, err := db.RemoteMaster().Begin()
 	if err != nil {
+		tx.Rollback()
 		logrus.Error("[List] remoteDB transaction: ", err)
 		return err
 	}
 
 	lastInsertId, err := listRecord.InsertToDB()
 	if err != nil {
-		logrus.Error("[List] insert to db: ", err)
 		tx.Rollback()
+		logrus.Error("[List] insert to db: ", err)
 		return err
 	}
 
@@ -407,24 +408,29 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	fee := big.NewInt(21_000_000) // 21FRA
 	resp, err := utils.SendTx(strconv.Itoa(int(brc20Balance-randAmount)), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fee.String(), constant.BRC20_OP_TRANSFER)
 	if err != nil {
+		tx.Rollback()
 		logrus.Errorf("[List] send tx: %v, robot: %v", err, curRobot.Account)
 		return err
 	}
 
 	var result RpcResult
-	_ = json.Unmarshal([]byte(resp), &result)
+	if err := json.Unmarshal([]byte(resp), &result); err != nil {
+		tx.Rollback()
+		logrus.Errorf("[List] unmarshal: %v", err)
+		return err
+	}
 
 	// 4. 确认转账
 	listRecordTemp := &model.ListRecord{Base: model.Base{Id: uint64(lastInsertId)}, User: curRobot.Account}
 	if err = listRecordTemp.ConfirmList(); err != nil {
-		logrus.Error("[List] confirm list: ", err)
 		tx.Rollback()
+		logrus.Error("[List] confirm list: ", err)
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
-		logrus.Error("[List] tx commit: ", err)
 		tx.Rollback()
+		logrus.Error("[List] commit transaction: ", err)
 		return err
 	}
 
@@ -515,6 +521,9 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 			logrus.Errorf("[Buy] transfer: %v, account: %v", err, curRobot.Account)
 			return err
 		}
+
+		time.Sleep(time.Second * 17) // 等17秒,为了确保交易已上链
+
 		var result1 RpcResult
 		if err = json.Unmarshal([]byte(resp), &result1); err != nil {
 			logrus.Error("[Buy] unmarshal transfer result: ", err)
@@ -527,38 +536,46 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 		listRecord := &model.ListRecord{Base: model.Base{Id: rec.Id}, ToUser: curRobot.Account}
 		tx, err := db.RemoteMaster().Begin()
 		if err != nil {
+			tx.Rollback()
+			logrus.Error("[Buy] begin db transaction: ", err)
 			return err
 		}
 		err = listRecord.Finished()
 		if err != nil {
+			tx.Rollback()
+			logrus.Error("[Buy] finish record list: ", err)
 			return err
 		}
 
 		// 需要中心化账户把brc20 token打给购买者, 并且将fra转给上架者
 		toPubKey, err := utils.GetPubkeyFromAddress(curRobot.Account)
 		if err != nil {
+			tx.Rollback()
+			logrus.Error("[Buy] get pub key from address: ", err)
 			return err
 		}
 		receiver, err := utils.GetPubkeyFromAddress(rec.User)
 		if err != nil {
+			tx.Rollback()
+			logrus.Error("[Buy] get pub key from address: ", err)
 			return err
 		}
-
 		recPrivateKey := platform.Mnemonic2PrivateKey([]byte(rec.CenterMnemonic))
 		if len(recPrivateKey) == 0 {
-			return fmt.Errorf("get private key from recorde mnemonic")
+			tx.Rollback()
+			return fmt.Errorf("[Buy] recPrivateKey is zero")
 		}
-
-		time.Sleep(time.Second * 20) // 等20秒,为了确保交易已上链
 
 		resp, err = utils.SendTx("0", recPrivateKey, receiver, toPubKey, rec.Amount, rec.Ticker, decRecPrice.Value.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
+			tx.Rollback()
 			logrus.Error("[Buy] send tx error: ", err)
 			return err
 		}
 
 		var result2 RpcResult
 		if err = json.Unmarshal([]byte(resp), &result2); err != nil {
+			tx.Rollback()
 			logrus.Error("[Buy] unmarshal send result: ", err)
 			return err
 		}
