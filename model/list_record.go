@@ -310,7 +310,7 @@ func (l *ListRecord) GetRobotListRecord(token string) ([]*ListRecord, error) {
 		return nil, err
 	}
 	var result []*ListRecord
-	sqlQuery := fmt.Sprintf("select * from list_record where ticker='%s' and state = 0 and \"user\" in (?) order by price", token)
+	sqlQuery := fmt.Sprintf("select * from list_record where ticker='%s' and state = 0 order by price/amount", token)
 	q, a, err := sqlx.In(sqlQuery, robots)
 	if err != nil {
 		return nil, err
