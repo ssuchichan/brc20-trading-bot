@@ -304,20 +304,20 @@ func (l *ListRecord) FindOrderPageList(pageNo int, pageCount int, params UserTic
 }
 
 func (l *ListRecord) GetRobotListRecord(token string) ([]*ListRecord, error) {
-	r := &Robot{}
-	robots, err := r.AllListAccounts()
-	if err != nil {
-		return nil, err
-	}
+	//r := &Robot{}
+	//robots, err := r.AllListAccounts()
+	//if err != nil {
+	//	return nil, err
+	//}
 	var result []*ListRecord
-	sqlQuery := fmt.Sprintf("select * from list_record where ticker='%s' and state = 0 and \"user\" in (?) order by price/amount", token)
-	q, a, err := sqlx.In(sqlQuery, robots)
-	if err != nil {
-		return nil, err
-	}
+	sqlQuery := fmt.Sprintf("select * from list_record where ticker='%s' and state = 0 order by price/amount", token)
+	//q, a, err := sqlx.In(sqlQuery, robots)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	q = db.RemoteMaster().Rebind(q)
-	err = db.RemoteMaster().Select(&result, q, a...)
+	//q = db.RemoteMaster().Rebind(q)
+	err := db.RemoteMaster().Select(&result, sqlQuery)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return result, nil

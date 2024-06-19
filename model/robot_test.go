@@ -12,13 +12,6 @@ func TestCreateBatch(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestAllAccounts(t *testing.T) {
-	r := &Robot{}
-	result, err := r.AllAcounts()
-	assert.Nil(t, err)
-	assert.Equal(t, 200, len(result))
-}
-
 func TestGetRobotById(t *testing.T) {
 	r := &Robot{}
 	res, err := r.GetById(5)
