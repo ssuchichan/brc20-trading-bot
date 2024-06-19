@@ -474,9 +474,9 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 		db.MRedis().Set(context.Background(), "S:L:B:R", nextID, time.Duration(0))
 	}()
 
-	// 2. 获取机器人订单
+	// 2. 获取订单
 	l := &model.ListRecord{}
-	records, err := l.GetRobotListRecord(ticker)
+	records, err := l.GetListRecord(ticker)
 	if err != nil {
 		logrus.Error("[Buy] get robot list records: ", err)
 		return err
@@ -548,13 +548,15 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 		}
 
 		// 需要中心化账户把brc20 token打给购买者, 并且将fra转给上架者
+		// 购买者
 		toPubKey, err := utils.GetPubkeyFromAddress(curRobot.Account)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] get pub key from address: ", err)
 			return err
 		}
-		receiver, err := utils.GetPubkeyFromAddress(rec.User)
+		// 挂单者
+		fraReceiver, err := utils.GetPubkeyFromAddress(rec.User)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] get pub key from address: ", err)
@@ -566,7 +568,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 			return fmt.Errorf("[Buy] recPrivateKey is zero")
 		}
 
-		resp, err = utils.SendTx("0", recPrivateKey, receiver, toPubKey, rec.Amount, rec.Ticker, decRecPrice.Value.String(), constant.BRC20_OP_TRANSFER)
+		resp, err = utils.SendTx("0", recPrivateKey, fraReceiver, toPubKey, rec.Amount, rec.Ticker, decRecPrice.Value.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] send tx error: ", err)

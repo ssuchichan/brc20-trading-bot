@@ -303,7 +303,7 @@ func (l *ListRecord) FindOrderPageList(pageNo int, pageCount int, params UserTic
 	return res, nil
 }
 
-func (l *ListRecord) GetRobotListRecord(token string) ([]*ListRecord, error) {
+func (l *ListRecord) GetListRecord(token string) ([]*ListRecord, error) {
 	//r := &Robot{}
 	//robots, err := r.AllListAccounts()
 	//if err != nil {
