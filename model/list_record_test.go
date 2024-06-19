@@ -71,7 +71,9 @@ func TestFindMarketInfos(t *testing.T) {
 
 func TestGetRobotListRecord(t *testing.T) {
 	r := &ListRecord{}
-	_, err := r.GetRobotListRecord()
+	lists, err := r.GetRobotListRecord("spk!")
 	assert.Nil(t, err)
-
+	for _, l := range lists {
+		fmt.Println(*l)
+	}
 }
