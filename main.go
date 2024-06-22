@@ -205,20 +205,16 @@ func main() {
 		//	}
 		case <-addListTicker.C:
 			curFloorPrice := floorPrices[priceIndex]
-			go func() {
-				err = addList(curFloorPrice, listLimit, listAmount, int64(firstListRobotID), int64(robotListCount), token)
-				if err != nil {
-					utils.GetLogger().Errorf("[List] list err: %v", err)
-				}
-			}()
+			err = addList(curFloorPrice, listLimit, listAmount, int64(firstListRobotID), int64(robotListCount), token)
+			if err != nil {
+				logrus.Errorf("[List] list err: %v", err)
+			}
 		case <-buyTicker.C:
 			curFloorPrice := floorPrices[priceIndex]
-			go func() {
-				err = buy(curFloorPrice, int64(firstBuyRobotID), int64(robotBuyCount), token)
-				if err != nil {
-					utils.GetLogger().Errorf("[Buy] buy err: %v", err)
-				}
-			}()
+			err = buy(curFloorPrice, int64(firstBuyRobotID), int64(robotBuyCount), token)
+			if err != nil {
+				logrus.Errorf("[Buy] buy err: %v", err)
+			}
 		case <-priceTicker.C:
 			if priceIndex+1 == int64(len(prices)) {
 				logrus.Info("[FloorPrice] Reached the last floor price, exit.")
@@ -226,8 +222,6 @@ func main() {
 			}
 			priceIndex += 1
 			logrus.Info("[FloorPrice] update floor price to: ", floorPrices[priceIndex])
-		default:
-			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
