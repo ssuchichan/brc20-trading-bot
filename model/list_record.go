@@ -79,7 +79,7 @@ func (l *ListRecord) Cancel() error {
 
 func (l *ListRecord) Finished() error {
 	l.UpdateTime = time.Now().Unix()
-	l.State = constant.ListFinished
+	l.State = constant.ListToBeConfirm
 	_, err := db.RemoteMaster().NamedExec("update list_record set state = :state, update_time = :update_time, to_user = :to_user where id = :id", l)
 	if err != nil {
 		return err
