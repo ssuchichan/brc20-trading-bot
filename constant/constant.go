@@ -72,10 +72,13 @@ const HRP = "fra"
 // list status
 // '0: 上架中 , 1: 取消, 2: 已完成, 3: 待上架';
 const (
-	Listing      = 0
-	ListCancel   = 1
-	ListFinished = 2
-	ListWaiting  = 3
+	Listing               = 0
+	ListCancel            = 1
+	ListFinished          = 2
+	ListWaiting           = 3
+	ListCancelToBeConfirm = 4
+	ListToBeConfirm       = 5
+	ListRefund            = 6
 )
 
 const TxMinFee = 10_000_000

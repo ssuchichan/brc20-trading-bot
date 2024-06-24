@@ -366,7 +366,13 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	// 挂单中心账户
 	center := platform.GetMnemonic()
 	centerAccount := platform.Mnemonic2Bench32([]byte(center))
+	if len(centerAccount) == 0 {
+		return fmt.Errorf("[List] centerAccount is 0")
+	}
 	centerPubKey, err := utils.GetPubkeyFromAddress(centerAccount)
+	if len(centerPubKey) == 0 {
+		return fmt.Errorf("[List] centerPubKey is 0")
+	}
 	if err != nil {
 		logrus.Error("[List] get pubKey from address: ", err)
 		return err
