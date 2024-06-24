@@ -48,8 +48,8 @@ func (l *ListRecord) InsertToDB() (int64, error) {
 
 	var insertedID int64
 	err := db.RemoteMaster().Get(&insertedID,
-		"INSERT INTO list_record (ticker, \"user\", amount, price, state, create_time, update_time, center_mnemonic) values ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-		l.Ticker, l.User, l.Amount, l.Price, l.State, l.CreateTime, l.UpdateTime, l.CenterMnemonic)
+		"INSERT INTO list_record (ticker, \"user\", amount, price, state, create_time, update_time, center_mnemonic, center_user) values ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+		l.Ticker, l.User, l.Amount, l.Price, l.State, l.CreateTime, l.UpdateTime, l.CenterMnemonic, l.CenterUser)
 	if err != nil {
 		return 0, err
 	}
