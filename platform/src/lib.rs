@@ -25,7 +25,8 @@ use zei::xfr::asset_record::{open_blind_asset_record, AssetRecordType};
 use zei::xfr::sig::XfrPublicKey;
 use zei::xfr::structs::{AssetRecordTemplate, OwnerMemo};
 
-const INNER_FEE: u64 = 2 * TX_FEE_MIN_V1;
+const INNER_FEE1: u64 = 14_000_000;
+const INNER_FEE2: u64 = 18_000_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Memo {
@@ -65,6 +66,11 @@ pub extern "C" fn get_tx_str(
     let from_remain = unsafe { slice::from_raw_parts(from_remain_ptr, from_remain_len as usize) };
     let from_remain_str = std::str::from_utf8(from_remain).unwrap();
     let remain_amount = from_remain_str.parse::<u64>().unwrap();
+    let fee = if remain_amount > 0 {
+        INNER_FEE2
+    } else {
+        INNER_FEE1
+    };
 
     let from_key = unsafe { slice::from_raw_parts(from_sig_ptr, from_sig_len as usize) };
     let to_pub_key = unsafe { slice::from_raw_parts(to_ptr, to_len as usize) };
@@ -115,13 +121,13 @@ pub extern "C" fn get_tx_str(
         input_amount += t_amout;
         op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
             .unwrap();
-        if input_amount > fra_price + INNER_FEE {
+        if input_amount >= fra_price + fee {
             // if input bigger than trans amount
             break;
         }
     }
 
-    if input_amount < fra_price + INNER_FEE {
+    if input_amount < fra_price + fee {
         return CString::new("").unwrap().into_raw();
     }
 
@@ -136,14 +142,14 @@ pub extern "C" fn get_tx_str(
         AssetRecordTemplate::with_no_asset_tracing(0, ASSET_TYPE_FRA, asset_record_type, to);
 
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - INNER_FEE - fra_price,
+        input_amount - fee - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         from.get_pk(),
     );
 
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
-        INNER_FEE,
+        fee,
         ASSET_TYPE_FRA,
         asset_record_type,
         *BLACK_HOLE_PUBKEY,
@@ -256,19 +262,19 @@ pub extern "C" fn get_transfer_tx_str(
         input_amount += t_amout;
         op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
             .unwrap();
-        if input_amount > fra_price + INNER_FEE {
+        if input_amount >= fra_price + TX_FEE_MIN_V1 {
             // if input bigger than trans amount
             break;
         }
     }
 
-    if input_amount < fra_price + INNER_FEE {
+    if input_amount < fra_price + TX_FEE_MIN_V1 {
         return CString::new("").unwrap().into_raw();
     }
 
     // 找零
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - INNER_FEE - fra_price,
+        input_amount - TX_FEE_MIN_V1 - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         from.get_pk(),
@@ -276,7 +282,7 @@ pub extern "C" fn get_transfer_tx_str(
 
     // 手续费
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
-        INNER_FEE,
+        TX_FEE_MIN_V1,
         ASSET_TYPE_FRA,
         asset_record_type,
         *BLACK_HOLE_PUBKEY,
@@ -333,12 +339,8 @@ fn get_transaction_builder(url: &str) -> Result<TransactionBuilder> {
         .map(|resp| TransactionBuilder::from_seq_id(resp.1))
 }
 
-fn get_owned_utxos(
-    url: &str,
-    pubkey: &str,
-) -> Result<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>> {
+fn get_owned_utxos(url: &str, pubkey: &str) -> Result<HashMap<TxoSID, (Utxo, Option<OwnerMemo>)>> {
     let url = format!("{}/owned_utxos/{}", url, pubkey);
-
     attohttpc::get(url)
         .send()
         .and_then(|resp| resp.bytes())
@@ -538,19 +540,19 @@ pub extern "C" fn get_send_robot_batch_tx(
         input_amount += t_amout;
         op.add_input(TxoRef::Absolute(sid), oar, None, None, t_amout)
             .unwrap();
-        if input_amount > fra_price + INNER_FEE {
+        if input_amount >= fra_price + TX_FEE_MIN_V1 {
             // if input bigger than trans amount
             break;
         }
     }
 
-    if input_amount < fra_price + INNER_FEE {
+    if input_amount < fra_price + TX_FEE_MIN_V1 {
         return CString::new("").unwrap().into_raw();
     }
 
     // 找零
     let template_from = AssetRecordTemplate::with_no_asset_tracing(
-        input_amount - INNER_FEE - fra_price,
+        input_amount - TX_FEE_MIN_V1 - fra_price,
         ASSET_TYPE_FRA,
         asset_record_type,
         from.get_pk(),
@@ -558,7 +560,7 @@ pub extern "C" fn get_send_robot_batch_tx(
 
     // 手续费
     let template_fee = AssetRecordTemplate::with_no_asset_tracing(
-        INNER_FEE,
+        TX_FEE_MIN_V1,
         ASSET_TYPE_FRA,
         asset_record_type,
         *BLACK_HOLE_PUBKEY,
