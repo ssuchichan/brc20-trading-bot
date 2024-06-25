@@ -406,12 +406,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 
 	// 3. 转账
 	remain := int(brc20Balance - randAmount)
-	var fee string
-	if remain > 0 {
-		fee = strconv.Itoa(18_000_000) // 18 FRA
-	} else {
-		fee = strconv.Itoa(14_000_000) // 14 FRA
-	}
+	fee := strconv.Itoa(14_000_000) // 14 FRA
 	resp, err := utils.SendTx(strconv.Itoa(remain), curRobot.PrivateKey, centerPubKey, centerPubKey, listRecord.Amount, ticker, fee, constant.BRC20_OP_TRANSFER)
 	if err != nil {
 		tx.Rollback()
