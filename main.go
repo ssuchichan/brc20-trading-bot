@@ -530,6 +530,9 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 			logrus.Error("[Buy] unmarshal transfer result: ", err)
 			return err
 		}
+		if result1.Result.Code > 0 {
+			return fmt.Errorf("[Buy] transfer to center failed")
+		}
 
 		logrus.Infof("[Buy] transfer to center hash: %s", result1.Result.Hash)
 
