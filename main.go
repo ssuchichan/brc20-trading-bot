@@ -348,7 +348,7 @@ func addList(floorPrice string, listLimit int64, listAmount int64, firstRobotID 
 	}
 	brc20Balance, _ := strconv.ParseInt(balanceInfo.OverallBalance, 10, 64)
 	if brc20Balance == 0 {
-		logrus.Infof("[List] insufficient balance, account: %s, token: %s, balance: %s", curRobot.Account, ticker, balanceInfo.OverallBalance)
+		logrus.Infof("[List] insufficient BRC20 balance, account: %s, token: %s, balance: %v", curRobot.Account, ticker, brc20Balance)
 		return nil
 	}
 	logrus.Infof("[List] current robot: %s, token: %s, brc20 balance: %d", curRobot.Account, ticker, brc20Balance)
@@ -523,7 +523,7 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 			return err
 		}
 
-		time.Sleep(time.Second * 17) // 等17秒,为了确保交易已上链
+		time.Sleep(time.Second * 20) // 等20秒,为了确保交易已上链
 
 		var result1 RpcResult
 		if err = json.Unmarshal([]byte(resp), &result1); err != nil {
@@ -559,20 +559,20 @@ func buy(floorPrice string, firstRobotID int64, robotCount int64, ticker string)
 			logrus.Error("[Buy] get pub key from address: ", err)
 			return err
 		}
-		// 挂单者
+		// 上架者/挂单者
 		fraReceiver, err := utils.GetPubkeyFromAddress(rec.User)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] get pub key from address: ", err)
 			return err
 		}
-		recPrivateKey := platform.Mnemonic2PrivateKey([]byte(rec.CenterMnemonic))
-		if len(recPrivateKey) == 0 {
+		centerPrivateKey := platform.Mnemonic2PrivateKey([]byte(rec.CenterMnemonic))
+		if len(centerPrivateKey) == 0 {
 			tx.Rollback()
-			return fmt.Errorf("[Buy] recPrivateKey is zero")
+			return fmt.Errorf("[Buy] center privateKey is 0")
 		}
 
-		resp, err = utils.SendTx("0", recPrivateKey, fraReceiver, toPubKey, rec.Amount, rec.Ticker, decRecPrice.Value.String(), constant.BRC20_OP_TRANSFER)
+		resp, err = utils.SendTx("0", centerPrivateKey, fraReceiver, toPubKey, rec.Amount, rec.Ticker, decRecPrice.Value.String(), constant.BRC20_OP_TRANSFER)
 		if err != nil {
 			tx.Rollback()
 			logrus.Error("[Buy] send tx error: ", err)

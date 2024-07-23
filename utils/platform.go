@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,11 +35,8 @@ func SendTx(remain string, from string, receiverPubKey string, toPubKey string, 
 		[]byte(tick),
 		[]byte(fraPrice),
 		[]byte(brcType))
-	if strings.Contains(txJsonString, "error") {
-		return "", fmt.Errorf(txJsonString)
-	}
-	if len(txJsonString) == 0 {
-		return "", fmt.Errorf("insufficient FRA")
+	if strings.Contains(txJsonString, "error") || strings.Contains(txJsonString, "insufficient") {
+		return "", errors.New(txJsonString)
 	}
 	resultTx := base64.URLEncoding.EncodeToString([]byte(txJsonString))
 	return sendRequest(resultTx)

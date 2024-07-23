@@ -25,8 +25,8 @@ use zei::xfr::asset_record::{open_blind_asset_record, AssetRecordType};
 use zei::xfr::sig::XfrPublicKey;
 use zei::xfr::structs::{AssetRecordTemplate, OwnerMemo};
 
-const INNER_FEE1: u64 = 14_000_000;
-const INNER_FEE2: u64 = 18_000_000;
+const INNER_FEE1: u64 = TX_FEE_MIN_V1 + 4_000_000;
+const INNER_FEE2: u64 = TX_FEE_MIN_V1 + 8_000_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Memo {
@@ -128,7 +128,12 @@ pub extern "C" fn get_tx_str(
     }
 
     if input_amount < fra_price + fee {
-        return CString::new("").unwrap().into_raw();
+        return CString::new(format!(
+            "insufficient: {} < {} + {}",
+            input_amount, fra_price, fee
+        ))
+        .unwrap()
+        .into_raw();
     }
 
     let memo_struct = Memo::new(
