@@ -46,19 +46,19 @@ impl Memo {
 pub extern "C" fn get_tx_str(
     from_remain_ptr: *mut u8,
     from_remain_len: u32,
-    from_sig_ptr: *mut u8, // 中心账户
+    from_sig_ptr: *mut u8, // 交易发起者: 1.挂单者  2.购买者
     from_sig_len: u32,
-    fra_receiver_ptr: *mut u8, // 挂单者
+    fra_receiver_ptr: *mut u8, // FRA接收者
     fra_receiver_len: u32,
-    to_ptr: *mut u8, // 购买者
+    to_ptr: *mut u8, // BRC20接收者
     to_len: u32,
-    trans_amount_ptr: *mut u8, // 订单BRC20数量
+    trans_amount_ptr: *mut u8, // BRC20数量
     trans_amount_len: u32,
     url_ptr: *mut u8,
     url_len: u32,
     tick_ptr: *mut u8, // 代币符号
     tick_len: u8,
-    fra_price_ptr: *mut u8, // 订单FRA总价
+    fra_price_ptr: *mut u8, // 1.挂单时发送给中心账户的手续费14FRA  2.购买时订单的FRA总价
     fra_price_len: u32,
     brc_type_ptr: *mut u8,
     brc_type_len: u32,
